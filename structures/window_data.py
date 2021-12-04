@@ -1,7 +1,28 @@
 import pandas as pd
 import numpy as np
+from scipy.stats import sem
 from typing import List
 from matplotlib.colors import ListedColormap
+from dataclasses import dataclass
+
+
+@dataclass
+class StackedWindow:
+
+    fps: float
+    data: pd.DataFrame
+
+    def average(self):
+        return np.mean(self.data, axis=1)
+
+    def sterr(self):
+        return sem(self.data, axis=1)
+
+    def stdev(self):
+        return np.std(self.data, axis=1)
+
+    def plot(self):
+        pass
 
 
 class WindowData:
@@ -29,20 +50,30 @@ class WindowData:
     def __repr__(self):
         return f'WindowData(num_windows={self.num_windows}, dims={self.dims})'
 
-    def collapse_on(self, column: str) -> np.array:
+    def collapse_on(self, column: str) -> StackedWindow:
         """
         :param column: variable from which you would like to extract data
         :return:
         """
-        agg_data = np.vstack([window[column].values for window in self.windows])
-        return agg_data
-        #agg_data = pd.DataFrame(agg_data.T, index=self.windows[0].index).T[::-1]
-        #return agg_data
+        _columns = [f'Trial_{i}' for i in range(1, len(self.windows) + 1)]
 
-    def spatial_heatmap(self, trial: int = None):
-        if trial:
-            # Allow specific trial to be plotted
+        agg = pd.DataFrame(np.vstack([window[column].values for window in self.windows]),
+                           columns=self.windows[0].index,
+                           index=_columns)
+
+        stacked = StackedWindow(data=agg,
+                                fps=self.fps)
+        return stacked
+
+    def spatial_heatmap(self, trials: list = None):
+
+        if trials is None:
+            # Plot all trials
             pass
+        else:
+            for trial in trials:
+                # Plot trial(s)
+                pass
         pass
 
     def trajectories_by_trial(self, trial: int = None, cmap: ListedColormap = 'viridis'):
@@ -57,9 +88,9 @@ class WindowData:
 
 
 if __name__ == '__main__':
-    from session_data import SessionData
+    from time_series import IndividualTimeSeries
 
-    my_series = SessionData('C://Users\\limogesaw\\Desktop\\mock_data\\Test_4.csv', fps=8)
+    my_series = IndividualTimeSeries('C://Users\\limogesaw\\Desktop\\mock_data\\Test_4.csv', fps=8)
     my_trials = my_series.split_by_trial(trial_type='so', pre_period=5, post_period=10)
 
     print(my_trials.windows)
