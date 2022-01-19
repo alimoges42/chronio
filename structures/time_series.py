@@ -1,3 +1,5 @@
+import pathlib
+from dataclasses import dataclass
 import pandas as pd
 import numpy as np
 from file_params import session_params
@@ -5,10 +7,14 @@ from slicingtools import windows_aligned
 from window_data import WindowData
 
 
+@dataclass
 class IndividualTimeSeries:
-    def __init__(self, filename: str, fps: float = 30):
-        self.df = pd.read_csv(filename)
-        self.fps = fps
+    fpath: str
+
+    def __post_init__(self):
+        self.df = pd.read_csv(self.fpath)
+        self.fps = self.df.shape[0] / round(self.df['Time'].values[-1], 0)
+
 
     def split_by_trial(self,
                        trial_type: str = None,

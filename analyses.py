@@ -6,7 +6,7 @@ from typing import List, Any
 
 
 def event_onsets(source_df: pd.DataFrame,
-                 cols: list) -> Any:
+                 cols: list) -> dict:
     """
     Obtains the frame numbers that signify onsets of events in desired columns of events.
 
@@ -175,3 +175,4 @@ if __name__ == '__main__':
 
     ons = event_onsets(source_df=df, cols=['Feature 1', 'Feature 3', 'Feature 9'])
     print(ons)
+

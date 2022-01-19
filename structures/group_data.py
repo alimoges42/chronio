@@ -24,5 +24,4 @@ class RMGroup:
 class Group:
     def __init__(self):
         pass
-
     pass
