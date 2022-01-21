@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Group Data
+
+This contains classes for working with grouped datasets, i.e. similar datasets across multiple replicates.
+
+@author: Aaron Limoges
+"""
+
 import pandas as pd
 import numpy as np
 

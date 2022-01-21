@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Conversions
+
+This submodule contains tools for converting frames to times and vice versa.
+
+@author: Aaron Limoges
+"""
+
 from numpy import ndarray, diff
 
 

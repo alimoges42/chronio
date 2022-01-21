@@ -1,3 +1,15 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Analyses
+
+This submodule contains tools for retrieving information on event lengths, intervals, and onset times,
+as well as binning tools.
+
+@author: Aaron Limoges
+"""
+
 import pandas as pd
 import numpy as np
 from collections import defaultdict
@@ -160,19 +172,31 @@ def get_state_durations(source_df: pd.DataFrame,
 
 
 if __name__ == '__main__':
+
+    # Simulate dataframe
     np.random.seed(5)
     arr = np.random.randint(0, 2, size=(100, 10))
     colnames = [f'Feature {i}' for i in range(0, arr.shape[1])]
     df = pd.DataFrame(arr, columns=colnames)
 
     print(df.head())
+
+    # Get event intervals
     intervals = event_intervals(source_df=df, cols=[df.columns[9]])
     print(intervals['Feature 9'])
+
+    # Use the event intervals as input to get streak data
     print(streaks_to_lists(streak_df=intervals['Feature 9']))
 
+    # Get total durations of each state
     durs = get_state_durations(source_df=df, cols=['Feature 1', 'Feature 3', 'Feature 9'], values=[0], fps=10)
     print(durs)
 
+    # Get onsets of streaks
     ons = event_onsets(source_df=df, cols=['Feature 1', 'Feature 3', 'Feature 9'])
     print(ons)
 
+    # Use indices of event onsets to access timestamps
+    df['Time'] = np.linspace(0, 20, df.shape[0])
+    print(df)
+    print(df.loc[ons['Feature 1'][1]])

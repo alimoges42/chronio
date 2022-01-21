@@ -1,6 +1,18 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Slicing Tools
+
+This submodule contains tools for slicing and indexing timestamped data.
+For example, it supports grabbing defined windows of consistent lengths around given target points.
+
+@author: Aaron Limoges
+"""
+
 import numpy as np
 import pandas as pd
-from conversions import frames_to_times
+from .conversions import frames_to_times
 
 
 def windows_custom(source_df: pd.DataFrame, startpoints: list, endpoints: list) -> list:

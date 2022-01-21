@@ -1,3 +1,15 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Trial Utils
+
+This contains a TrialReference class, which reads from the "tests.htm" file produced by Anymaze
+to allow the user to rapidly filter the universe of tests to select desired trial types for desired replicates.
+
+@author: Aaron Limoges
+"""
+
 import pathlib
 import pandas as pd
 from dataclasses import dataclass

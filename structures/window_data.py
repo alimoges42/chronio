@@ -1,3 +1,16 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Window Data
+
+This contains two special classes for working with window data, i.e. data of a consistent length
+across an arbitrary number of repeated trials.
+
+
+@author: Aaron Limoges
+"""
+
 import pandas as pd
 import numpy as np
 from scipy.stats import sem
@@ -12,7 +25,7 @@ class StackedWindow:
     fps: float
     data: pd.DataFrame
 
-    def average(self):
+    def mean(self):
         return np.mean(self.data, axis=1)
 
     def sterr(self):

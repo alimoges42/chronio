@@ -1,9 +1,20 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Plotting
+
+This submodule contains plotting functions for simple data visualization.
+
+@author: Aaron Limoges
+"""
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 
 
-def event_histogram(elements_dict: dict, element_mapping: dict, histplot_args: dict = None) -> plt.figure():
+def event_histogram(elements_dict: dict, element_mapping: dict, histplot_args: dict = None) -> plt.figure:
     """
     :param elements_dict:   an elements_dict, a dictionary where keys represent each unique element and
                             where each value a list of streak (i.e. interval) lengths
@@ -21,9 +32,9 @@ def event_histogram(elements_dict: dict, element_mapping: dict, histplot_args: d
 
 
 def simple_hist(arr: list):
-    sns.histplot(data=arr)
-    print(arr)
-    plt.show()
+    fig = sns.histplot(data=arr)
+    # print(arr)
+    return fig
 
 
 def xy_hist(df, cols):

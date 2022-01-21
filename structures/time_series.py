@@ -1,10 +1,22 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Time Series
+
+This submodule contains classes for working with time series data.
+It is useful for storing the raw time series dataset as well as its metadata.
+
+@author: Aaron Limoges
+"""
+
 import pathlib
 from dataclasses import dataclass
 import pandas as pd
 import numpy as np
-from file_params import session_params
-from slicingtools import windows_aligned
-from window_data import WindowData
+from .window_data import WindowData
+from ..slicingtools import windows_aligned
+from ..file_params import session_params
 
 
 @dataclass
@@ -69,7 +81,7 @@ if __name__ == '__main__':
     #agg = pd.DataFrame(agg.T, index=my_trials.windows[0].index).T[::-1]
     #ref_range = [np.where(agg.T.index.values == 0)[0], np.where(agg.T.index.values == 2)[0]]
     agg = my_trials.collapse_on(column='Speed')
-    print(agg.average())
+    print(agg.mean())
 
     agg = agg.data[::-1]       # This reversal operation should be reserved for plotting
 

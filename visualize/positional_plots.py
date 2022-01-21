@@ -1,3 +1,15 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Positional Plots
+
+This submodule contains functions for plotting data related to location and position within an area.
+For example, you may use this module to construct trackplots or heatmaps of position over time.
+
+@author: Aaron Limoges
+"""
+
 import matplotlib.colors
 import matplotlib.pyplot as plt
 import seaborn as sns
