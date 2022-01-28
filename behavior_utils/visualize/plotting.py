@@ -11,7 +11,6 @@ This submodule contains plotting functions for simple data visualization.
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pandas as pd
 
 
 def event_histogram(elements_dict: dict, element_mapping: dict, histplot_args: dict = None) -> plt.figure:
@@ -43,7 +42,7 @@ def xy_hist(df, cols):
 
 
 if __name__ == '__main__':
-    from analyses import event_intervals, streaks_to_lists
+    from behavior_utils.process.analyses import event_intervals, streaks_to_lists
     import numpy as np
     import pandas as pd
 
