@@ -1,0 +1,11 @@
+channels:
+ - conda-forge
+
+dependencies:
+ - cycler
+ - matplotlib
+ - numpy
+ - pandas
+ - pip
+ - scipy
+ - seaborn
