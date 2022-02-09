@@ -53,6 +53,7 @@ def event_intervals(source_df: pd.DataFrame,
 
     :param cols:        list of columns of the dataframe for which you would like IEIs to be computed
 
+
     :return:            dict of event interval data for each specified column
     """
 
@@ -72,11 +73,12 @@ def event_intervals(source_df: pd.DataFrame,
     return results
 
 
-def streaks_to_lists(streak_df: pd.DataFrame):
+def streaks_to_lists(streak_df: pd.DataFrame) -> dict:
     """
     :param streak_df:   A DataFrame of streaks with the column names of 'Elements' and 'Streaks'.
-                        These correspond to the DataFrames contained in the list returned by
+                        These correspond to the DataFrames contained in the dict values returned by
                         the event_intervals function.
+
 
     :return:            Returns elements_dict, a dictionary of each unique element found within the
                         'Elements' column of the streak_df. Each value is simply the value originally
@@ -97,15 +99,24 @@ def spatial_bins(source_df: pd.DataFrame,
                  handle_nans: str = 'bfill',
                  hist_kwargs: dict = None
                  ) -> tuple:
+
     """
-    :param source_df: df containing columns for x and y coordinates
-    :param x_col: name of the column with x data
-    :param y_col: name of the column with y data
-    :param bin_size: bin size (in mm)
+    :param source_df:   df containing columns for x and y coordinates
+
+    :param x_col:       name of the column with x data
+
+    :param y_col:       name of the column with y data
+
+    :param bin_size:    bin size (in mm)
+
     :param handle_nans: valid options are 'bfill', 'ffill', or 'drop'
+
     :param hist_kwargs: optional kwargs for np.histogram2d
-    :return:
+
+
+    :return:            tuple of H, x_edges, and y_edges (from np.histogram2d)
     """
+
     if hist_kwargs is None:
         hist_kwargs = {}
 
@@ -182,7 +193,7 @@ if __name__ == '__main__':
     print(df.head())
 
     # Get event intervals
-    intervals = event_intervals(source_df=df, cols=[df.columns[9]])
+    intervals = event_intervals(source_df=df, cols=[df.columns[9], df.columns[7]])
     print(intervals['Feature 9'])
 
     # Use the event intervals as input to get streak data

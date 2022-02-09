@@ -11,20 +11,33 @@ It is useful for storing the raw time series dataset as well as its metadata.
 """
 
 from dataclasses import dataclass
+from typing import Any
 import pandas as pd
 import numpy as np
 from window_data import WindowData
 from behavior_utils.process.slicingtools import windows_aligned
+from behavior_utils.process.analyses import *
+from behavior_utils.metadata.individual_metadata import IndividualMetadata
 
 
 @dataclass
 class IndividualTimeSeries:
     fpath: str
+    meta: Any
 
     def __post_init__(self):
         self.df = pd.read_csv(self.fpath)
         self.fps = self.df.shape[0] / round(self.df['Time'].values[-1], 0)
 
+        if type(self.meta) == dict:
+            self.meta = IndividualMetadata(self.meta)
+
+        elif type(self.meta) == IndividualMetadata:
+            pass
+
+        else:
+            raise ValueError('Metadata parameter not recognized. Please use a dictionary or a pre-instantiated'
+                             'IndividualMetadata object.')
 
     def split_by_trial(self,
                        indices: list,
@@ -63,6 +76,28 @@ class IndividualTimeSeries:
 
         return trials
 
+    def event_onsets(self, cols: list) -> dict:
+        return event_onsets(self.df, cols=cols)
+
+    def event_intervals(self, cols: list) -> dict:
+        return event_intervals(self.df, cols=cols)
+
+    def get_streaks(self, cols: list) -> dict:
+
+        """
+        :param cols:    Columns on which to compute streaks
+
+
+        :return:        Dict of dicts, where streaks[col][event] allows access to a list of streak durations.
+        """
+        streaks = {}
+
+        ieis = event_intervals(self.df, cols=cols)
+
+        for col, data in ieis.items():
+            streaks[col] = streaks_to_lists(streak_df=data)
+
+        return streaks
 
 if __name__ == '__main__':
     import seaborn as sns
@@ -82,7 +117,7 @@ if __name__ == '__main__':
     ref_range = [np.where(agg.T.index.values == 0)[0], np.where(agg.T.index.values == 2)[0]]
     print(agg.shape)
     print(agg.T.index.values)
-    fig = sns.heatmap(agg)
-    print(ref_range)
-    fig.axvspan(ref_range[0], ref_range[1], color='w', alpha=0.3)
-    plt.show()
+    #fig = sns.heatmap(agg)
+    #print(ref_range)
+    #fig.axvspan(ref_range[0], ref_range[1], color='w', alpha=0.3)
+    #plt.show()
