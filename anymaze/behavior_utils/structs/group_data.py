@@ -10,10 +10,11 @@ This contains classes for working with grouped datasets, i.e. similar datasets a
 """
 
 import pandas as pd
-import numpy as np
+from .structure import _DataStructure
+from .metadata import Metadata
 
 
-class RMGroup:
+class RMGroup(_DataStructure):
     """
     Repeated Measures Group data.
 
@@ -26,7 +27,8 @@ class RMGroup:
     Sample IDs are assumed to be in the index of the dataframe
     """
 
-    def __init__(self, data: pd.DataFrame, id_cols: list = None):
+    def __init__(self, data: pd.DataFrame, metadata: Metadata, id_cols: list = None):
+        super().__init__(data, metadata)
         self.data = data
         self.samples = data.index.values
         self.id_cols = id_cols

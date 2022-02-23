@@ -42,7 +42,7 @@ def xy_hist(df, cols):
 
 
 if __name__ == '__main__':
-    from behavior_utils.process.analyses import event_intervals, streaks_to_lists
+    from anymaze.behavior_utils.process.analyses import event_intervals, streaks_to_lists
     import numpy as np
     import pandas as pd
 

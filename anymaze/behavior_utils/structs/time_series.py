@@ -11,33 +11,20 @@ It is useful for storing the raw time series dataset as well as its metadata.
 """
 
 from dataclasses import dataclass
-from typing import Any
 import pandas as pd
 import numpy as np
-from window_data import WindowData
-from behavior_utils.process.slicingtools import windows_aligned
-from behavior_utils.process.analyses import *
-from behavior_utils.metadata.individual_metadata import IndividualMetadata
+from anymaze.behavior_utils.structs.window_data import WindowData
+from anymaze.process.slicingtools import windows_aligned
+from anymaze.process.analyses import event_onsets, event_intervals, streaks_to_lists
 
 
 @dataclass
-class IndividualTimeSeries:
+class BehavioralTimeSeries:
     fpath: str
-    meta: Any
 
     def __post_init__(self):
         self.df = pd.read_csv(self.fpath)
         self.fps = self.df.shape[0] / round(self.df['Time'].values[-1], 0)
-
-        if type(self.meta) == dict:
-            self.meta = IndividualMetadata(self.meta)
-
-        elif type(self.meta) == IndividualMetadata:
-            pass
-
-        else:
-            raise ValueError('Metadata parameter not recognized. Please use a dictionary or a pre-instantiated'
-                             'IndividualMetadata object.')
 
     def split_by_trial(self,
                        indices: list,
@@ -57,16 +44,16 @@ class IndividualTimeSeries:
 
         :param storage_params:  Dict of parameters for saving
 
-
         :return:                List of aligned trial data
         """
 
         trials = WindowData(
-                            windows_aligned(source_df=self.df,
-                                            fps=self.fps,
-                                            alignment_points=indices,
-                                            pre_frames=int(pre_period * self.fps),
-                                            post_frames=int(post_period * self.fps)),
+                            data=windows_aligned(source_df=self.df,
+                                                 fps=self.fps,
+                                                 alignment_points=indices,
+                                                 pre_frames=int(pre_period * self.fps),
+                                                 post_frames=int(post_period * self.fps)),
+                            metadata=None,
                             fps=self.fps,
                             indices=indices,
                             trial_type=trial_type)
@@ -99,15 +86,14 @@ class IndividualTimeSeries:
 
         return streaks
 
+
 if __name__ == '__main__':
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-    my_series = IndividualTimeSeries('C://Users\\limogesaw\\Desktop\\mock_data\\Test_4.csv')
+    my_series = BehavioralTimeSeries('C://Users\\limogesaw\\Desktop\\mock_data\\Test_4.csv')
     indices = my_series.df[my_series.df['Shocker on activated'] == 1].index
     print(indices)
     my_trials = my_series.split_by_trial(indices=indices, pre_period=5, post_period=10)
     print(my_trials.indices)
-    agg = my_trials.collapse_on(column='Speed')
+    agg = my_trials.collapse_on(feature='Speed')
     print(agg.mean())
 
     agg = agg.data[::-1]       # This reversal operation should be reserved for plotting
