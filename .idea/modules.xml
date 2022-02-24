@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/anymaze.iml" filepath="$PROJECT_DIR$/.idea/anymaze.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/chronio.iml" filepath="$PROJECT_DIR$/.idea/chronio.iml" />
     </modules>
   </component>
 </project>

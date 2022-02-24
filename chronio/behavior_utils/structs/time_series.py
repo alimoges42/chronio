@@ -13,9 +13,9 @@ It is useful for storing the raw time series dataset as well as its metadata.
 from dataclasses import dataclass
 import pandas as pd
 import numpy as np
-from anymaze.behavior_utils.structs.window_data import WindowData
-from anymaze.process.slicingtools import windows_aligned
-from anymaze.process.analyses import event_onsets, event_intervals, streaks_to_lists
+from chronio.behavior_utils.structs.window_data import WindowData
+from chronio.process.slicingtools import windows_aligned
+from chronio.process.analyses import event_onsets, event_intervals, streaks_to_lists
 
 
 @dataclass

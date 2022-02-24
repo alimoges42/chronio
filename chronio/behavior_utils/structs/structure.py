@@ -1,6 +1,6 @@
 from abc import ABC
 from typing import Any
-from anymaze.export.exporter import _DataExporter
+from chronio.export.exporter import _DataExporter
 from .metadata import Metadata
 
 
