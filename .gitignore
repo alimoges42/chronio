@@ -1,1 +1,5 @@
+# VCS
+*.idea
+
+# Documentation
 /docs/

@@ -136,7 +136,7 @@ def trial_trajectories(data: dict,
 
 if __name__ == '__main__':
     import pandas as pd
-    from chronio.behavior_utils.process.analyses import spatial_bins
+    from src.chronio import spatial_bins
 
     data = pd.read_csv('C://Users\\limogesaw\\Desktop\\mock_data\\Test_4.csv')
 

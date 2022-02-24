@@ -2,11 +2,9 @@ import datetime as dt
 from typing import Any, Callable
 from pathlib import Path
 from abc import ABC
-
 import pandas as pd
 
 today = dt.datetime.now()
-print(today.strftime('%m%d%Y'))
 
 
 class _DataExporter(ABC):
