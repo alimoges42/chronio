@@ -11,13 +11,16 @@ New releases and updates will be available here.
  - Identify event onsets, durations, and terminations
  - Get the durations of intervals between events
  - Retrieve windows of a defined shape around points of interest in a behavioral dataset
+
  ###**Coming Soon (~March 2022)**
  - Save your files in a consistent format
  - Support for photometry and calcium imaging data
  - Simple data visualization
+
  ###**Long-term (Spring 2022 and beyond)**
  - Build templates that model features of your experimental paradigm for easy analyses 
  - Advanced data visualization
+
 ## Installation
 Right now, Anaconda is needed for installation of this software. To install, first download this software 
 (either using `git clone` or by downloading and unzipping the folder). Next, using Anaconda prompt, navigate to 
