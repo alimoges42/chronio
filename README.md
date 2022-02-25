@@ -1,9 +1,10 @@
 # ChronIO: A toolbox for analysis of physiological time series data
 
 ## Overview
-ChronIO is a scientific toolbox developed in Python. It enables the analysis of datasets that are sampled 
-at a consistent rate. Currently, chronIO works well for simple analyses of behavioral data. In the coming weeks,
-additional features will allow more complex analyses to be performed and for more types of data to be analyzed. 
+ChronIO is a scientific toolbox developed in Python. It enables the analysis of physiological datasets that are sampled 
+at a consistent rate. For example, it may be used for analysis of behavioral and neural data. Currently, chronIO works 
+well for simple analyses of behavioral data. In the coming weeks, additional features will allow more complex 
+analyses to be performed and for more types of data to be analyzed. 
 New releases and updates will be available here.
 
 ## Features
@@ -23,7 +24,7 @@ New releases and updates will be available here.
 
 ## Installation
 Right now, Anaconda is needed for installation of this software. To install, first download this software 
-(either using `git clone` or by downloading and unzipping the folder). Next, using Anaconda prompt, navigate to 
+(either using `git clone` or by downloading and unzipping the folder). Next, using Anaconda Prompt, navigate to 
 the location you saved the folder. Type each of the following commands and make sure that each command is executed 
 successfully before you move on to the next.
 
