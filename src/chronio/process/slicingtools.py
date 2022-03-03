@@ -49,7 +49,7 @@ def windows_aligned(source_df:          pd.DataFrame,
     the number of frames to be included before and after each alignment point so that each window
     in the returned list is of equal length.
 
-    This function is useful for analyzing data relative to the onset of specific events or cues.
+    This function is useful for analyzing data relative to the onset of specific events or trials.
 
     Note that if the number of pre_period or post_period frames leads to a certain window that extends outside
     the available data, that specific window will be returned as an empty dataframe.

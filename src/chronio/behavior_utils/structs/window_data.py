@@ -34,6 +34,9 @@ class StackedWindow(_DataStructure):
 
     def mean(self, axis: int = 1):
         """
+        Compute the mean of the dataset along a specified axis. Note that when the data are binary (i.e. 1s and 0s),
+        the mean also represents percentage (of both frames and time) of some outcome over that axis.
+
         :param axis:    axis along which to compute. By default this is set to 1, which will return the mean
                         value at each timepoint across the window.
 
@@ -60,6 +63,33 @@ class StackedWindow(_DataStructure):
         :return:        Returns the standard deviation along the specified axis (passed to np.std())
         """
         return np.std(self.data, axis=axis)
+
+    def sum(self, axis: int = 1):
+        """
+        :param axis:    axis along which to compute. By default this is set to 1, which will return the sum
+                        at each timepoint across the window.
+
+        :return:        Returns the sum along the specified axis (passed to np.sum())
+        """
+        return np.sum(self.data, axis=axis)
+
+    def max(self, axis: int = 1):
+        """
+        :param axis:    axis along which to compute. By default this is set to 1, which will return the maximum value
+                        at each timepoint across the window.
+
+        :return:        Returns the maximum value along the specified axis (passed to np.max())
+        """
+        return np.max(self.data, axis=axis)
+
+    def min(self, axis: int = 1):
+        """
+        :param axis:    axis along which to compute. By default this is set to 1, which will return the minimum value
+                        at each timepoint across the window.
+
+        :return:        Returns the minimum value along the specified axis (passed to np.min())
+        """
+        return np.min(self.data, axis=axis)
 
     def plot(self):
         pass
