@@ -11,12 +11,13 @@ across an arbitrary number of repeated trials.
 @author: Aaron Limoges
 """
 
+from typing import List, Any
 import pandas as pd
 import numpy as np
 from scipy.stats import sem
-from typing import List, Any
 from matplotlib.colors import ListedColormap
-from .structure import _DataStructure
+
+from chronio.behavior_utils.structs.structure import _DataStructure
 
 
 class StackedWindow(_DataStructure):
@@ -32,22 +33,9 @@ class StackedWindow(_DataStructure):
     def __repr__(self):
         return f'{self.__class__.__name__}(num_rows={self.data.shape[0]}, num_columns={self.data.shape[1]})'
 
-    def mean(self, axis: int = 1):
+    def sem(self, axis: int = 0):
         """
-        Compute the mean of the dataset along a specified axis. Note that when the data are binary (i.e. 1s and 0s),
-        the mean also represents percentage (of both frames and time) of some outcome over that axis.
-
-        :param axis:    axis along which to compute. By default this is set to 1, which will return the mean
-                        value at each timepoint across the window.
-
-        :return:        Returns the mean of the data along the specified axis (passed to np.mean())
-        """
-
-        return np.mean(self.data, axis=axis)
-
-    def sem(self, axis: int = 1):
-        """
-        :param axis:    axis along which to compute. By default this is set to 1, which will return the standard error
+        :param axis:    axis along which to compute. By default this is set to 0, which will return the standard error
                         at each timepoint across the window.
 
         :return:        Returns the standard error of the mean along the specified axis (passed to scipy.stats.sem())
@@ -55,41 +43,20 @@ class StackedWindow(_DataStructure):
 
         return sem(self.data, axis=axis)
 
-    def std(self, axis: int = 1):
+    def event_counts(self, axis: int = 0):
         """
-        :param axis:    axis along which to compute. By default this is set to 1, which will return the standard
-                        deviation at each timepoint across the window.
+        Return counts of events for binarized data. Note that this method requires the variable of interest to
+        consist solely of 1s and 0s, where 1s represent event occurrence.
 
-        :return:        Returns the standard deviation along the specified axis (passed to np.std())
-        """
-        return np.std(self.data, axis=axis)
+        :param axis:    axis along which to compute. By default this is set to 0, which will count the events in each
+                        trial across the window.
 
-    def sum(self, axis: int = 1):
+        :return:        Returns the total number of events of interest along a given axis in the window
         """
-        :param axis:    axis along which to compute. By default this is set to 1, which will return the sum
-                        at each timepoint across the window.
 
-        :return:        Returns the sum along the specified axis (passed to np.sum())
-        """
-        return np.sum(self.data, axis=axis)
-
-    def max(self, axis: int = 1):
-        """
-        :param axis:    axis along which to compute. By default this is set to 1, which will return the maximum value
-                        at each timepoint across the window.
-
-        :return:        Returns the maximum value along the specified axis (passed to np.max())
-        """
-        return np.max(self.data, axis=axis)
-
-    def min(self, axis: int = 1):
-        """
-        :param axis:    axis along which to compute. By default this is set to 1, which will return the minimum value
-                        at each timepoint across the window.
-
-        :return:        Returns the minimum value along the specified axis (passed to np.min())
-        """
-        return np.min(self.data, axis=axis)
+        diff_ = np.diff(self.data, axis=axis)
+        diff_[diff_ == -1] = 0
+        return diff_.sum(axis=axis)
 
     def plot(self):
         pass
@@ -131,9 +98,9 @@ class WindowData(_DataStructure):
         """
         _columns = [f'Trial_{i}' for i in range(1, len(self.data) + 1)]
 
-        agg = pd.DataFrame(np.vstack([window[feature].values for window in self.data]),
-                           columns=self.data[0].index,
-                           index=_columns)
+        agg = pd.DataFrame(np.vstack([window[feature].values for window in self.data]).T,
+                           columns=_columns,
+                           index=self.data[0].index)
 
         stacked = StackedWindow(data=agg,
                                 fps=self.fps,
@@ -165,9 +132,25 @@ class WindowData(_DataStructure):
 if __name__ == '__main__':
     from time_series import BehavioralTimeSeries
 
-    my_series = BehavioralTimeSeries('C://Users\\limogesaw\\Desktop\\mock_data\\Test_4.csv', fps=8)
-    my_trials = my_series.split_by_trial(trial_type='so', pre_period=5, post_period=10)
+    my_series = BehavioralTimeSeries('C://Users\\limogesaw\\Desktop\\mock_data\\Test_4.csv')
+    my_trials = my_series.split_by_trial(trial_type='so', pre_period=5, post_period=30, indices=[100, 400, 700, 1000])
 
-    print(my_trials.windows)
+    print(my_trials.data)
     print(str(my_trials))
     print(repr(my_trials))
+    print(my_trials.data[0].columns)
+    collapsed = my_trials.collapse_on('Speed')
+
+    #collapsed.data = np.random.randint(2, size=(100, 4))
+    print(collapsed.data)
+    print(str(collapsed))
+    print(repr(collapsed))
+
+    #print(collapsed.event_counts())
+
+    print(collapsed.data.index.shape)
+
+    t = pd.to_timedelta(collapsed.data.index, unit='seconds')
+    s = collapsed.data.set_index(t).resample('1S').last().reset_index(drop=True)
+    print(t)
+    print(s)

@@ -3,6 +3,7 @@ channels:
 
 dependencies:
  - cycler
+ - fsspec
  - matplotlib
  - numpy
  - pandas

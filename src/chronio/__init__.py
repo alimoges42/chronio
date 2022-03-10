@@ -1,3 +1,3 @@
-__all__ = ['behavior_utils', 'export', 'photometry_utils', 'process', 'miniscope_utils']
+__all__ = ['behavior_utils', 'export', 'manager', 'process', 'neuro_utils']
 
 from . import *
