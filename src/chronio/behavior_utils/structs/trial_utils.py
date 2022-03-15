@@ -4,38 +4,29 @@
 """
 Trial Utils
 
-This contains a TrialReference class, which reads from the "tests.htm" file produced by Anymaze
+This contains a SessionReference class, which reads from the "tests.htm" file produced by Anymaze
 to allow the user to rapidly filter the universe of tests to select desired trial types for desired replicates.
 
 @author: Aaron Limoges
 """
 
-import pathlib
+from pathlib import Path, PurePath
 import pandas as pd
-from dataclasses import dataclass
 
 
-@dataclass
-class TrialReference:
-    fpath: str
+class SessionReference:
 
-    def __post_init__(self):
-        file_ = pd.read_html(self.fpath)
-        _data = pd.DataFrame()
-
-        for row in file_[1:]:
-            _data = _data.append(row)
-
-        _data.drop(columns=_data.columns[0], inplace=True)
-
-        _data = pd.DataFrame(data=_data.iloc[1:].values, columns=_data.iloc[0])
-        self.data = _data
-        self.mice = self.data['Animal'].unique()
-        self.stages = self.data['Stage'].unique()
-        self.statuses = self.data['Testing status'].unique()
-        self._fpath = pathlib.Path(self.fpath)
+    def __init__(self, fpath):
+        self.fpath = fpath
+        self._fpath = Path(self.fpath)
         self._basedir = self._fpath.parent
         self.basedir = str(self._fpath.parent)
+
+        if PurePath(self.fpath).suffix == 'csv':
+            self.data = pd.read_csv(fpath)
+
+        elif PurePath(self.fpath).suffix == 'xlsx':
+            self.data = pd.read_excel(fpath)
 
     def filter(self, col_args: dict) -> pd.DataFrame:
         """
@@ -68,7 +59,7 @@ if __name__ == '__main__':
     f = '\\'.join([lab_folder, user, experiment, subdirs, htm])
     print(f)
 
-    ref = TrialReference(f)
+    ref = SessionReference(f)
     print(ref.data.columns)
     print(ref.filter({'Test': [2, 3, 6, 10], 'Animal': 2}))
     print(ref.stages, ref.mice)
