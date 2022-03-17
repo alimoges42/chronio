@@ -9,8 +9,6 @@ This submodule contains tools for converting frames to times and vice versa.
 @author: Aaron Limoges
 """
 
-from numpy import ndarray, diff
-
 
 def frames_to_times(fps: float, frame_numbers: list) -> list:
     """
@@ -34,17 +32,6 @@ def times_to_frames(fps: float, timestamps: list) -> list:
     return list(map(lambda x: int(x * fps), timestamps))
 
 
-def sequential_differences(values: list) -> ndarray:
-    """
-    Evaluate the interval (in numbers of frames) between consecutive pairs of frames in a list.
-
-    :param values:  list of frame numbers
-    :return:        list of deltas. List will be of length n-1, where n is length of values parameter.
-    """
-
-    return diff(values)
-
-
 if __name__ == '__main__':
     frate = 5
     stamps = frames_to_times(fps=frate, frame_numbers=[2, 2, 5, 10, 13])
@@ -52,6 +39,3 @@ if __name__ == '__main__':
 
     frames = times_to_frames(fps=frate, timestamps=stamps)
     print(frames)
-
-    diffs = sequential_differences(frames)
-    print(diffs)

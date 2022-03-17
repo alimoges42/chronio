@@ -18,15 +18,20 @@ class SessionReference:
 
     def __init__(self, fpath):
         self.fpath = fpath
-        self._fpath = Path(self.fpath)
-        self._basedir = self._fpath.parent
-        self.basedir = str(self._fpath.parent)
+        # self._fpath = Path(self.fpath)
+        # self._basedir = self._fpath.parent
+        # self.basedir = str(self._fpath.parent)
 
-        if PurePath(self.fpath).suffix == 'csv':
+        self.mappings = None
+
+        if PurePath(self.fpath).suffix == '.csv':
             self.data = pd.read_csv(fpath)
 
-        elif PurePath(self.fpath).suffix == 'xlsx':
+        elif PurePath(self.fpath).suffix == '.xlsx':
             self.data = pd.read_excel(fpath)
+
+    def assign(self, mappings: dict):
+        self.mappings = mappings
 
     def filter(self, col_args: dict) -> pd.DataFrame:
         """
@@ -61,6 +66,6 @@ if __name__ == '__main__':
 
     ref = SessionReference(f)
     print(ref.data.columns)
-    print(ref.filter({'Test': [2, 3, 6, 10], 'Animal': 2}))
+    print(ref.filter({'Observation': [2, 3, 6, 10], 'Animal': 2}))
     print(ref.stages, ref.mice)
 

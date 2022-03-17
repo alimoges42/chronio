@@ -1,7 +1,7 @@
 from typing import Any
 
 
-class Specimen:
+class Observation:
     def __init__(self, **files):
         for key in files:
             print(key)
@@ -9,5 +9,5 @@ class Specimen:
 
 
 if __name__ == '__main__':
-    spec = Specimen(file1={'path': 'yo', 'obj': 'behavior'}, file2={'path': 'hey', 'obj': 'neuro'})
+    spec = Observation(file1={'path': 'yo', 'obj': 'behavior'}, file2={'path': 'hey', 'obj': 'neuro'})
     print(spec.file2)

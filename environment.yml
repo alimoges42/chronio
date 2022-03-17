@@ -4,6 +4,9 @@ channels:
 dependencies:
  - cycler
  - fsspec
+ - ipykernel
+ - ipython
+ - jupyter
  - matplotlib
  - numpy
  - pandas
