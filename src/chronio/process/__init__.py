@@ -1,3 +1,3 @@
-__all__ = ['analyses', 'conversions', 'slicingtools']
+__all__ = ['analyses', 'conversions']
 
 from . import *

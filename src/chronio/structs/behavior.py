@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-Time Series
+behavior.py
 
-This submodule contains classes for working with time series data.
+This submodule contains classes for working with behavioral time series data.
 It is useful for storing the raw time series dataset as well as its metadata.
 
 @author: Aaron Limoges
@@ -15,9 +15,8 @@ from dataclasses import dataclass
 import pandas as pd
 import numpy as np
 from scipy.interpolate import interp1d
-from chronio.behavior_utils.structs.window_data import WindowData
-from chronio.process.slicingtools import windows_aligned
-from chronio.process.analyses import event_onsets, event_intervals, streaks_to_lists
+from chronio.structs.windows import Window
+from chronio.process.analyses import event_onsets, event_intervals, streaks_to_lists, windows_aligned
 
 
 @dataclass
@@ -87,7 +86,7 @@ class BehavioralTimeSeries:
                        trial_type: str = None,
                        pre_period: float = 0,
                        post_period: float = 0,
-                       storage_params: str = None) -> WindowData:
+                       storage_params: str = None) -> Window:
 
         """
         :param indices:         Indices to align to
@@ -103,16 +102,15 @@ class BehavioralTimeSeries:
         :return:                List of aligned trial data
         """
 
-        trials = WindowData(
-                            data=windows_aligned(source_df=self.data,
-                                                 fps=self.fps,
-                                                 alignment_points=indices,
-                                                 pre_frames=int(pre_period * self.fps),
-                                                 post_frames=int(post_period * self.fps)),
-                            metadata=None,
-                            fps=self.fps,
-                            indices=indices,
-                            trial_type=trial_type)
+        trials = Window(data=windows_aligned(source_df=self.data,
+                                             fps=self.fps,
+                                             alignment_points=indices,
+                                             pre_frames=int(pre_period * self.fps),
+                                             post_frames=int(post_period * self.fps)),
+                        metadata=None,
+                        fps=self.fps,
+                        indices=indices,
+                        trial_type=trial_type)
 
         if storage_params:
             pass

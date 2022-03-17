@@ -3,7 +3,7 @@ from typing import Any
 from numpy import ndarray
 from pandas import DataFrame
 
-from chronio.designer.convention import Convention
+from chronio.design.convention import Convention
 from chronio.export.exporter import _DataFrameExporter, _ArrayExporter
 
 

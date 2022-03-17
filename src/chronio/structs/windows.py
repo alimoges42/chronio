@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Window Data
+windows.py
 
 This contains two special classes for working with window data, i.e. data of a consistent length
 across an arbitrary number of repeated trials.
@@ -15,12 +15,11 @@ from typing import List, Any
 import pandas as pd
 import numpy as np
 from scipy.stats import sem
-from matplotlib.colors import ListedColormap
 
-from chronio.behavior_utils.structs.structure import _DataStructure
+from chronio.structs.structure import _DataStructure
 
 
-class StackedWindow(_DataStructure):
+class WindowPane(_DataStructure):
 
     def __init__(self, fps: float, data: pd.DataFrame, metadata: Any):
         super().__init__(data, metadata)
@@ -62,7 +61,7 @@ class StackedWindow(_DataStructure):
         pass
 
 
-class WindowData(_DataStructure):
+class Window(_DataStructure):
     def __init__(self, data: List[pd.DataFrame], fps: float, indices: list, metadata: Any,
                  trial_type: str = None):
         """
@@ -90,11 +89,11 @@ class WindowData(_DataStructure):
     def __repr__(self):
         return f'{self.__class__.__name__}(num_windows={self.num_windows}, dims={self.dims})'
 
-    def collapse_on(self, feature: str) -> StackedWindow:
+    def collapse_on(self, feature: str) -> WindowPane:
         """
         :param feature:     variable (i.e. column name) from which you would like to extract data
 
-        :return:            StackedWindow of the specified feature
+        :return:            WindowPane of the specified feature
         """
         _columns = [f'Trial_{i}' for i in range(1, len(self.data) + 1)]
 
@@ -102,27 +101,10 @@ class WindowData(_DataStructure):
                            columns=_columns,
                            index=self.data[0].index)
 
-        stacked = StackedWindow(data=agg,
-                                fps=self.fps,
-                                metadata=None)
+        stacked = WindowPane(data=agg,
+                             fps=self.fps,
+                             metadata=None)
         return stacked
-
-    def spatial_heatmap(self, trials: list = None):
-
-        if trials is None:
-            # Plot all trials
-            pass
-        else:
-            for trial in trials:
-                # Plot trial(s)
-                pass
-        pass
-
-    def trajectories_by_trial(self, trial: int = None, cmap: ListedColormap = 'viridis'):
-        pass
-
-    def survival_curve(self):
-        pass
 
     def save_windows(self, save_params: dict):
 
@@ -130,7 +112,7 @@ class WindowData(_DataStructure):
 
 
 if __name__ == '__main__':
-    from time_series import BehavioralTimeSeries
+    from behavior import BehavioralTimeSeries
 
     my_series = BehavioralTimeSeries('C://Users\\limogesaw\\Desktop\\mock_data\\Test_4.csv')
     my_trials = my_series.split_by_trial(trial_type='so', pre_period=5, post_period=30, indices=[100, 400, 700, 1000])

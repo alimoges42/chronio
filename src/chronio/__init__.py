@@ -1,3 +1,3 @@
-__all__ = ['behavior_utils', 'export', 'manager', 'process', 'neuro_utils']
+__all__ = ['design', 'export', 'manage', 'process', 'structs', 'visualize']
 
 from . import *

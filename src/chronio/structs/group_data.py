@@ -10,8 +10,8 @@ This contains classes for working with grouped datasets, i.e. similar datasets a
 """
 
 import pandas as pd
-from .structure import _DataStructure
-from .metadata import Metadata
+from chronio.structs.structure import _DataStructure
+from chronio.structs.metadata import Metadata
 
 
 class RMGroup(_DataStructure):
