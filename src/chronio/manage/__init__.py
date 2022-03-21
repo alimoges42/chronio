@@ -1,3 +1,3 @@
-__all__ = ['observation', 'trial_utils']
+__all__ = ['observations']
 
 from . import *

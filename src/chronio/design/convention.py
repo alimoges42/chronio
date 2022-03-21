@@ -6,7 +6,7 @@ from numpy import savetxt
 
 class Convention:
     def __init__(self, directory: str, suffix: str, fields: list,
-                 append_date: bool = True, overwrite: bool = False,
+                 append_date: bool = False, overwrite: bool = False,
                  to_csv_args: dict = None, savetxt_args: dict = None):
         self.directory = directory
         self.fields = fields
@@ -39,7 +39,7 @@ class Convention:
 def convention_from_template(template_path: str) -> Convention:
     json_data = json.load(open(template_path))
     convention = Convention(directory=json_data['directory'], suffix=json_data['suffix'], fields=json_data['fields'],
-                 append_date=json_data['append_date'], overwrite=json_data['overwrite'],
-                 to_csv_args=json_data['to_csv_args'], savetxt_args=json_data['save_text_args'])
+                            append_date=json_data['append_date'], overwrite=json_data['overwrite'],
+                            to_csv_args=json_data['to_csv_args'], savetxt_args=json_data['save_text_args'])
     return convention
 
