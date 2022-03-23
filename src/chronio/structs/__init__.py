@@ -1,3 +1,3 @@
-__all__ = ['metadata', 'raw_structs.py', 'derived_structs.py']
+__all__ = ['metadata', 'raw_structs', 'derived_structs']
 
 from . import *
