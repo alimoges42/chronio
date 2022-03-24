@@ -1,3 +1,3 @@
-__all__ = ['plot_defaults', 'plotting', 'positional_plots']
+__all__ = ['plotting', 'positional_plots']
 
 from . import *

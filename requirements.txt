@@ -1,7 +1,0 @@
-cycler
-matplotlib
-numpy
-pandas
-pip
-scipy
-seaborn

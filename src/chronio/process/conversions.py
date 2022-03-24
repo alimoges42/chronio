@@ -2,11 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-Conversions
-
 This submodule contains tools for converting frames to times and vice versa.
 
-@author: Aaron Limoges
+Author: Aaron Limoges
 """
 
 
@@ -30,12 +28,3 @@ def times_to_frames(fps: float, timestamps: list) -> list:
     """
 
     return list(map(lambda x: int(x * fps), timestamps))
-
-
-if __name__ == '__main__':
-    frate = 5
-    stamps = frames_to_times(fps=frate, frame_numbers=[2, 2, 5, 10, 13])
-    print(stamps)
-
-    frames = times_to_frames(fps=frate, timestamps=stamps)
-    print(frames)

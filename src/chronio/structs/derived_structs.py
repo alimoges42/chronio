@@ -2,13 +2,11 @@
 # -*- coding: utf-8 -*-
 
 """
-derived_structs.py
-
 This contains two special classes for working with window data, i.e. data of a consistent length
 across an arbitrary number of repeated trials.
 
 
-@author: Aaron Limoges
+Author: Aaron Limoges
 """
 
 from abc import ABC as _ABC
@@ -23,7 +21,9 @@ from chronio.structs.metadata import Metadata as _Metadata
 
 
 class _DerivedStructure(_ABC):
-
+    """
+    Base class for structures that are derived from raw structures
+    """
     def __init__(self, data: _Any, metadata: _Metadata):
         self.data = data
         self.metadata = metadata
@@ -57,7 +57,20 @@ class _DerivedStructure(_ABC):
 
 
 class WindowPane(_DerivedStructure):
+    """
+    Class which represents the reduction of a :class: `chronio.structs.derived_structs.Window` on a single feature.
+    The data contained in this class correspond to trial-by-trial data of a given feature.
 
+    :param data:        a DataFrame of trial-by-trial data; output by `Window.collapse_on()`
+    :type data:         pd.DataFrame
+
+    :param metadata:    metadata for the object
+    :type metadata:     :class: `chronio.structs.metadata.Metadata`
+
+    :param pane_params: information about the settings used to obtain the pane.
+                        These are then passed to `self.metadata.pane_params`
+    :type pane_params:  dict
+    """
     def __init__(self, data: _pd.DataFrame, metadata: _Metadata, pane_params: dict = None):
         super().__init__(data=data, metadata=metadata)
 
@@ -100,16 +113,25 @@ class WindowPane(_DerivedStructure):
 
 
 class Window(_DerivedStructure):
+    """
+        Class which represents the trial-by-trial data for a given trial of all features
+        contained in a time series csv.
 
+        :param data:            a list of DataFrames of trial-by-trial data
+        :type data:             List[pd.DataFrame]
+
+        :param metadata:        metadata for the object
+        :type metadata:         :class: `chronio.structs.metadata.Metadata`
+
+        :param window_params:   information about the settings used to obtain the pane.
+                                These are then passed to `self.metadata.window_params`
+        :type window_params:    dict
+        """
     def __init__(self,
                  data: _List[_pd.DataFrame],
                  metadata: _Metadata,
                  window_params: dict = None):
-        """
-        :param data:
-        :param metadata:
-        :param window_params:
-        """
+
         super().__init__(data=data, metadata=metadata)
 
         if not window_params:
@@ -155,31 +177,3 @@ class Window(_DerivedStructure):
     def save_windows(self, save_params: dict):
 
         pass
-
-
-if __name__ == '__main__':
-    from chronio.structs.raw_structs import BehavioralTimeSeries
-
-    my_series = BehavioralTimeSeries(fpath='C://Users\\limogesaw\\Desktop\\mock_data\\Test_4.csv')
-    my_trials = my_series.split_by_trial(trial_type='so', pre_period=5, post_period=30, indices=[100, 400, 700, 1000])
-
-    print(my_trials.data)
-    print(str(my_trials))
-    print(repr(my_trials))
-    print(my_trials.data[0].columns)
-    collapsed = my_trials.collapse_on('Speed')
-
-    #collapsed.data = np.random.randint(2, size=(100, 4))
-    print(collapsed.data)
-    print(str(collapsed))
-    print(repr(collapsed))
-
-    #print(collapsed.event_counts())
-
-    print(collapsed.data.index.shape)
-
-    t = _pd.to_timedelta(collapsed.data.index, unit='seconds')
-    s = collapsed.data.set_index(t).resample('1S').last().reset_index(drop=True)
-    print(t)
-    print(s)
-    print(collapsed.metadata.session['fps'])
