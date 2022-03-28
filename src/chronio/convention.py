@@ -10,14 +10,16 @@ import json
 import inspect
 from numpy import savetxt
 
+__all__ = ['Convention', 'convention_from_template']
+
 
 class Convention:
     """
     Holds specifications for a custom filenaming convention.
 
     Convention objects are passed to other chronio objects including
-    :class:`chronio.structs.raw_structs.BehavioralTimeSeries`, :class:`chronio.structs.raw_structs.NeuroTimeSeries`,
-    :class:`chronio.structs.derived_structs.Window`, and :class:`chronio.structs.derived_structs.WindowPane`.
+    :class:`chronio.structs.BehavioralTimeSeries`, :class:`chronio.structs.NeuroTimeSeries`,
+    :class:`chronio.structs.Window`, and :class:`chronio.structs.WindowPane`.
 
     :param directory:       The directory to which to save.
     :type directory:        str
@@ -27,7 +29,7 @@ class Convention:
 
     :param fields:          Fields of metadata that should be saved.
                             May correspond to column names of the data contained in
-                            :class: `chronio.manage.obersvations.SessionReference` objects
+                            :class: `chronio.observations.SessionReference` objects
     :type fields:           list
 
     :param append_date:     If true, append today's date to the end of the filename. Defaults to False.

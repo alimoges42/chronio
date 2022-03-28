@@ -14,13 +14,46 @@ from collections import defaultdict
 from itertools import groupby
 from typing import List
 
-from chronio.process.conversions import frames_to_times
+
+__all__ = ['frames_to_times',
+           'times_to_frames',
+           'event_onsets',
+           'event_intervals',
+           'streaks_to_lists',
+           'spatial_bins',
+           'get_state_durations',
+           'windows_aligned',
+           'windows_custom']
+
+
+def frames_to_times(fps: float, frame_numbers: list) -> list:
+    """
+    Retrieve timestamps given frame numbers.
+
+    :param fps: frame rate (frames per second)
+    :param frame_numbers:
+    :return: list of timestamps that each frame corresponds to.
+    """
+
+    return list(map(lambda x: x / fps, frame_numbers))
+
+
+def times_to_frames(fps: float, timestamps: list) -> list:
+    """
+    Retrieve frame numbers given timestamps or time intervals.
+
+    :param fps: frame rate (frames per second)
+    :param timestamps:
+    :return: list of frames that each timestamp corresponds to.
+    """
+
+    return list(map(lambda x: int(x * fps), timestamps))
 
 
 def event_onsets(source_df: pd.DataFrame,
                  cols: list) -> dict:
     """
-    Obtains the frame numbers that signify onsets of events in desired columns of events.
+    Obtain the frame numbers that signify onsets of events in desired columns of events.
 
     :param source_df:   original dataframe to use
 
@@ -75,6 +108,8 @@ def event_intervals(source_df: pd.DataFrame,
 
 def streaks_to_lists(streak_df: pd.DataFrame) -> dict:
     """
+    Convert streaks to lists.
+
     :param streak_df:   A DataFrame of streaks with the column names of 'Elements' and 'Streaks'.
                         These correspond to the DataFrames contained in the dict values returned by
                         the event_intervals function.
@@ -101,6 +136,8 @@ def spatial_bins(source_df: pd.DataFrame,
                  ) -> tuple:
 
     """
+    Retrieve the spatial bins of events
+
     :param source_df:   df containing columns for x and y coordinates
 
     :param x_col:       name of the column with x data
@@ -148,9 +185,7 @@ def get_state_durations(source_df: pd.DataFrame,
                         values: list = None,
                         fps: float = 30) -> pd.DataFrame:
     """
-    Computes the durations of states in specific columns of a source DataFrame.
-    Unique values of supplied dataframes are interpreted as unique
-
+    Computes the durations of states in specific columns of a DataFrame.
 
     :param source_df:   DataFrame
 
@@ -184,7 +219,9 @@ def get_state_durations(source_df: pd.DataFrame,
 
 def windows_custom(source_df: pd.DataFrame, startpoints: list, endpoints: list) -> list:
     """
-    Grabs each window between each pair of startpoints and endpoints, permitting variable window sizes.
+    Grab the windows between each pair of startpoints and endpoints.
+
+    Note that this function allows window sizes to vary in length.
 
     :param source_df: original array to grab frames from
     :param startpoints: list of frame numbers where each window should start
@@ -212,8 +249,9 @@ def windows_aligned(source_df:          pd.DataFrame,
                     post_frames:        int = 0,
                     center_index:       bool = True) -> list:
     """
-    Grabs a window aligned in reference to a set of alignment points. User may specify
-    the number of frames to be included before and after each alignment point so that each window
+    Grab windows aligned in reference to a set of alignment points.
+
+    User may specify the number of frames to be included before and after each alignment point so that each window
     in the returned list is of equal length.
 
     This function is useful for analyzing data relative to the onset of specific events or trials.

@@ -1,10 +1,10 @@
 import pandas as _pd
 
-from chronio.structs.raw_structs import _RawStructure
+from chronio.structs.structs import _Structure
 from chronio.design.convention import Convention as _Convention
 
 if __name__ == '__main__':
-    test = _RawStructure(data=_pd.DataFrame())
+    test = _Structure(data=_pd.DataFrame())
     test.export(convention=_Convention(directory='//', suffix='csv', append_date=True, overwrite=False, fields=['name']),
                 directory='//aaron/')
 

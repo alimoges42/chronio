@@ -14,7 +14,7 @@ from typing import Any
 import pandas as pd
 import numpy as np
 
-from chronio.structs.raw_structs import BehavioralTimeSeries
+from chronio.structs.structs import BehavioralTimeSeries
 #from chronio.structs.windows import Window
 from chronio.process.analyses import windows_aligned
 

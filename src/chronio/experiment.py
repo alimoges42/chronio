@@ -2,11 +2,14 @@ import os
 import pathlib
 import json
 
+__all__ = ['Stage', 'stage_from_template']
+
 
 class Stage:
     """
-    Create a stage of an experimental paradigm. Stages can be used to specify onsets of
-    environmental cues and stimuli administered as part of an experiment.
+    Create a stage of an experimental paradigm.
+
+    Stages can be used to specify onsets of environmental cues and stimuli administered as part of an experiment.
 
     :param stage:           Name of the stage
     :type stage:            str

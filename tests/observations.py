@@ -1,5 +1,5 @@
 import pandas as pd
-from chronio.structs.raw_structs import BehavioralTimeSeries
+from chronio.structs.structs import BehavioralTimeSeries
 from chronio.manage.observations import Session
 
 if __name__ == '__main__':

@@ -2,7 +2,9 @@ from __future__ import annotations
 from typing import List
 from pathlib import Path, PurePath
 import pandas as pd
-from chronio.structs.raw_structs import BehavioralTimeSeries, NeuroTimeSeries
+from chronio.structs import BehavioralTimeSeries, NeuroTimeSeries
+
+__all__ = ['SessionReference', 'Session']
 
 
 class SessionReference:

@@ -1,7 +1,7 @@
 import pandas as _pd
 
 if __name__ == '__main__':
-    from chronio.structs.raw_structs import BehavioralTimeSeries
+    from chronio.structs.structs import BehavioralTimeSeries
 
     my_series = BehavioralTimeSeries(fpath='C://Users\\limogesaw\\Desktop\\mock_data\\Test_4.csv')
     my_trials = my_series.split_by_trial(trial_type='so', pre_period=5, post_period=30, indices=[100, 400, 700, 1000])
