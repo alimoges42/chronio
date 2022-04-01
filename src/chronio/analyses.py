@@ -5,7 +5,7 @@
 Basic tools for retrieving information on event lengths, intervals, and onset times,
 as well as window alignment.
 
-@author: Aaron Limoges
+Author: Aaron Limoges
 """
 
 import pandas as pd

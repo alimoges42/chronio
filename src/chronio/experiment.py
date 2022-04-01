@@ -1,4 +1,10 @@
-import os
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Module for defining experimental parameters.
+"""
+
 import pathlib
 import json
 
@@ -7,12 +13,12 @@ __all__ = ['Stage', 'stage_from_template']
 
 class Stage:
     """
-    Create a stage of an experimental paradigm.
+    Create a stage_name of an experimental paradigm.
 
     Stages can be used to specify onsets of environmental cues and stimuli administered as part of an experiment.
 
-    :param stage:           Name of the stage
-    :type stage:            str
+    :param stage_name:           Name of the stage_name
+    :type stage_name:            str
 
     :param stage_duration:  Total duration of the test/observation
     :type stage_duration:   float
@@ -27,8 +33,8 @@ class Stage:
     :type trial_durations:  dict
     """
 
-    def __init__(self, stage: str, stage_duration: float, trial_onsets: dict, trial_durations: dict):
-        self.stage = stage
+    def __init__(self, stage_name: str, stage_duration: float, trial_onsets: dict, trial_durations: dict):
+        self.stage_name = stage_name
         self.stage_duration = stage_duration
         self.trial_onsets = trial_onsets
         self.trials = trial_onsets.keys()
@@ -45,7 +51,7 @@ class Stage:
 
     def add_trial_type(self, trial_name: str, trial_onsets: list, trial_duration: float):
         """
-        Add a new trial type to the existing stage.
+        Add a new trial type to the existing stage_name.
 
         :param trial_name:      Name of the trial type
         :type trial_name:       str
@@ -61,7 +67,7 @@ class Stage:
 
     def remove_trial_type(self, trial_name: str):
         """
-        Remove a trial_type from the current stage.
+        Remove a trial_type from the current stage_name.
 
         :param trial_name:  Name of the trial type to be removed
         :type trial_name:   str
@@ -74,20 +80,20 @@ class Stage:
         else:
             raise ValueError(f'Trial type {trial_name} not found.')
 
-    def export_template(self, path: str = os.getcwd()):
+    def export_template(self, path: str = pathlib.Path.cwd()):
         """
-        Save the current stage as a JSON file in a specified path.
+        Save the current stage_name as a JSON file in a specified path.
 
         :param path:    Path to save to. Defaults to working directory.
         :type path:     str
         """
 
         path = pathlib.Path(path)
-        fname = f'{self.stage}.json'
+        fname = f'{self.stage_name}.json'
         path = pathlib.PurePath.joinpath(path, fname)
         print(path)
-        to_save = {'duration': self.stage_duration,
-                   'stage': self.stage,
+        to_save = {'stage_duration': self.stage_duration,
+                   'stage_name': self.stage_name,
                    'trial_onsets': self.trial_onsets,
                    'trial_durations': self.trial_durations}
 
@@ -97,7 +103,7 @@ class Stage:
 
 def stage_from_template(template_path: str) -> Stage:
     """
-    Load a stage from a saved JSON file.
+    Load a stage_name from a saved JSON file.
 
     :param template_path:   Path to the JSON file.
     :type template_path:    str
@@ -105,6 +111,10 @@ def stage_from_template(template_path: str) -> Stage:
     :return:                Returns a Stage object from the JSON file.
     """
     json_data = json.load(open(template_path))
-    stage = Stage(stage=json_data['stage'], stage_duration=json_data['stage_duration'],
+    stage = Stage(stage_name=json_data['stage_name'], stage_duration=json_data['stage_duration'],
                   trial_onsets=json_data['trial_onsets'], trial_durations=json_data['trial_durations'])
     return stage
+
+
+def stage_from_stamps():
+    pass

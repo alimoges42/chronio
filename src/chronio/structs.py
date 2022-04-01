@@ -1,3 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Data structures for holding data and metadata associated with a specimen.
+"""
+
 from abc import ABC as _ABC
 from typing import Any as _Any, List as _List
 import numpy as _np
@@ -31,15 +38,12 @@ class Metadata:
                  n_windows: int = None,
 
                  # Dictionary that will overwrite established values
-                 meta_dict: dict = None
+                 meta_dict: dict = {}
                  ):
-        if not meta_dict:
-            meta_dict = {}
 
         self.system = {'fpath': fpath}
-        self.subject = {}
-        self.session = {'fps': fps,
-                        'stage': stage}
+        self.computed = {'fps': fps}
+        self.session = {'stage_name': stage}
         self.window_params = {'indices': indices,
                               'n_windows': n_windows,
                               'trial_type': trial_type}
@@ -47,12 +51,31 @@ class Metadata:
 
         self.update(meta_dict=meta_dict)
 
-    def set_val(self, group, value_dict):
+    def set_val(self, group: str, value_dict: dict):
+        """
+        Sets value of a specific metadata attribute (all metadata attributes are dicts).
+
+        :param group:       The attribute to be updated. Accepted values are `'system'`, `'computed'`,
+                            `'session'`, `'window_params'`, and `'pane_params'`.
+        :type group:        str
+
+        :param value_dict:  The new values of the attribute.
+        :type value_dict:   dict
+        """
+
         d = getattr(self, group)
         for key, value in value_dict.items():
             d[key] = value
 
     def update(self, meta_dict: dict):
+        """
+        Update the metadata by passing a dict where each key corresponds to an attribute, and values are the
+        new dicts for that attribute.
+
+        :param meta_dict:   dict containing metadata values
+        :type: meta_dict:   dict
+        """
+
         for group in list(self.__dict__.keys()):
             self.set_val(group, meta_dict)
 
@@ -67,7 +90,7 @@ class _Structure(_ABC):
         self.data = data
         self.metadata = metadata
 
-    def export(self, convention: _Convention, function_kwargs: dict = None, **exporter_kwargs):
+    def export(self, convention: _Convention, function_kwargs: dict = {}, **exporter_kwargs):
         """
         Parameters supplied by exporter_kwargs will replace those supplied by the convention object. This is to
         allow users on-the-fly editing without having to specify all the new fields of a convention object if they
@@ -83,38 +106,31 @@ class _Structure(_ABC):
 
         elif type(self.data) == _pd.DataFrame:
             # TODO: Support both CSV and XLSX export options - could be achieved by editing _DataFrameExporter?
-            exporter = _DataFrameExporter(obj=self.data, **export_kwargs)
+            exporter = _DataFrameExporter(obj=self.data,
+                                          metadata=self.metadata,
+                                          **export_kwargs)
 
         else:
             raise ValueError(f'No export protocol for {type(self.data)} exists.')
 
-        if function_kwargs:
-            exporter.export(self.data, **function_kwargs)
-
-        else:
-            exporter.export(self.data)
-
 
 class WindowPane(_Structure):
     """
-    Class which represents the reduction of a :class: `chronio.structs.derived_structs.Window` on a single feature.
+    Class which represents the reduction of a :class: `chronio.structs.Window` on a single feature.
     The data contained in this class correspond to trial-by-trial data of a given feature.
 
     :param data:        a DataFrame of trial-by-trial data; output by `Window.collapse_on()`
     :type data:         pd.DataFrame
 
     :param metadata:    metadata for the object
-    :type metadata:     :class: `chronio.structs.metadata.Metadata`
+    :type metadata:     :class: `chronio.structs.Metadata`
 
     :param pane_params: information about the settings used to obtain the pane.
                         These are then passed to `self.metadata.pane_params`
     :type pane_params:  dict
     """
-    def __init__(self, data: _pd.DataFrame, metadata: Metadata, pane_params: dict = None):
+    def __init__(self, data: _pd.DataFrame, metadata: Metadata, pane_params: dict = {}):
         super().__init__(data=data, metadata=metadata)
-
-        if not pane_params:
-            pane_params = {}
 
         for key, value in pane_params:
             setattr(self.metadata.pane_params, key, pane_params[key])
@@ -160,7 +176,7 @@ class Window(_Structure):
         :type data:             List[pd.DataFrame]
 
         :param metadata:        metadata for the object
-        :type metadata:         :class: `chronio.structs.metadata.Metadata`
+        :type metadata:         :class: `chronio.structs.Metadata`
 
         :param window_params:   information about the settings used to obtain the pane.
                                 These are then passed to `self.metadata.window_params`
@@ -169,12 +185,9 @@ class Window(_Structure):
     def __init__(self,
                  data: _List[_pd.DataFrame],
                  metadata: Metadata,
-                 window_params: dict = None):
+                 window_params: dict = {}):
 
         super().__init__(data=data, metadata=metadata)
-
-        if not window_params:
-            window_params = {}
 
         for key, value in window_params:
             setattr(self.metadata.window_params, key, window_params[key])
@@ -221,19 +234,18 @@ class Window(_Structure):
 class _TimeSeries(_Structure):
 
     def __init__(self, data: _Any, metadata: Metadata, fpath: str = None,
-                 read_csv_kwargs: dict = None):
+                 read_csv_kwargs: dict = {}):
         super().__init__(data=data, metadata=metadata)
 
         if fpath:
             self.metadata.system['fpath'] = fpath
 
-            if read_csv_kwargs:
-                self.data = _pd.read_csv(self.metadata.system['fpath'], **read_csv_kwargs)
+            self.data = _pd.read_csv(self.metadata.system['fpath'], **read_csv_kwargs)
 
-            else:
-                self.data = _pd.read_csv(self.metadata.system['fpath'])
+        self._update_fps()
 
-        self.metadata.session['fps'] = self.data.shape[0] / round(self.data['Time'].values[-1], 0)
+    def _update_fps(self):
+        self.metadata.computed['fps'] = self.data.shape[0] / round(self.data['Time'].values[-1], 0)
 
     def downsample_to_length(self, method: str = 'nearest', length: int = None, inplace=False):
         """
@@ -258,6 +270,7 @@ class _TimeSeries(_Structure):
 
         if inplace:
             self.data = _pd.DataFrame(index=idx, columns=self.data.columns, data=y_new)
+            self._update_fps()
 
         else:
             return _pd.DataFrame(index=idx, columns=self.data.columns, data=y_new)
@@ -291,6 +304,7 @@ class _TimeSeries(_Structure):
 
         if inplace:
             self.data = binned
+            self._update_fps()
 
         else:
             return binned
@@ -398,10 +412,10 @@ class _TimeSeries(_Structure):
         :return:                List of aligned trial data
         """
         trials = Window(data=_analyses.windows_aligned(source_df=self.data,
-                                                       fps=self.metadata.session['fps'],
+                                                       fps=self.metadata.computed['fps'],
                                                        alignment_points=indices,
-                                                       pre_frames=int(pre_period * self.metadata.session['fps']),
-                                                       post_frames=int(post_period * self.metadata.session['fps'])),
+                                                       pre_frames=int(pre_period * self.metadata.computed['fps']),
+                                                       post_frames=int(post_period * self.metadata.computed['fps'])),
                         metadata=self.metadata,
                         window_params={'trial_type': trial_type})
 

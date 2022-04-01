@@ -27,10 +27,10 @@ class Convention:
     :param suffix:          The extension of the filename (i.e. csv, xlsx)
     :type suffix:           str
 
-    :param fields:          Fields of metadata that should be saved.
+    :param metadata_fields:          Fields of metadata that should be saved.
                             May correspond to column names of the data contained in
                             :class: `chronio.observations.SessionReference` objects
-    :type fields:           list
+    :type metadata_fields:           list
 
     :param append_date:     If true, append today's date to the end of the filename. Defaults to False.
     :type append_date:      bool, optional
@@ -38,23 +38,22 @@ class Convention:
     :param overwrite:       If true, overwrite a matching file if it is already found in the target directory.
     :type overwrite:        bool, optional
 
-    :param to_csv_args:     Arguments to be passed to the Pandas `pd.read_csv()` function
-    :type to_csv_args:      dict, optional
+    :param function_kwargs: Arguments to be passed to the Pandas `pd.read_csv()` function
+    :type function_kwargs:      dict, optional
 
     :param savetxt_args:    Arguments to be passed to the Numpy `np.savetxt()` function.
     :type savetxt_args:     dict, optional
 
     """
-    def __init__(self, directory: str, suffix: str, fields: list,
+    def __init__(self, directory: str, suffix: str, metadata_fields: list,
                  append_date: bool = False, overwrite: bool = False,
-                 to_csv_args: dict = None, savetxt_args: dict = None):
+                 function_kwargs: dict = {}):
         self.directory = directory
-        self.fields = fields
+        self.metadata_fields = metadata_fields
         self.suffix = suffix
         self.append_date = append_date
         self.overwrite = overwrite
-        self.to_csv_args = to_csv_args
-        self.savetxt_args = savetxt_args
+        self.function_kwargs = function_kwargs
 
     def get_params(self):
         """
@@ -96,8 +95,8 @@ def convention_from_template(template_path: str) -> Convention:
     :return: Convention object restored from the saved file.
     """
     json_data = json.load(open(template_path))
-    convention = Convention(directory=json_data['directory'], suffix=json_data['suffix'], fields=json_data['fields'],
-                            append_date=json_data['append_date'], overwrite=json_data['overwrite'],
-                            to_csv_args=json_data['to_csv_args'], savetxt_args=json_data['save_text_args'])
+    convention = Convention(directory=json_data['directory'], suffix=json_data['suffix'],
+                            metadata_fields=json_data['fields'], append_date=json_data['append_date'],
+                            overwrite=json_data['overwrite'], function_kwargs=json_data['function_kwargs'])
     return convention
 

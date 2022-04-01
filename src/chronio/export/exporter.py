@@ -8,18 +8,24 @@ from pandas import DataFrame
 
 
 class _DataExporter(ABC):
-    def __init__(self, obj: Any, directory: str, suffix: str, fields: list,
-                 append_date: bool = True, overwrite: bool = False, function_kwargs: dict = None):
+    def __init__(self, obj: Any, metadata: Any, metadata_fields: dict, directory: str, suffix: str,
+                 append_date: bool = True, overwrite: bool = False, function_kwargs: dict = {}):
         self.directory = directory
         self._directory = Path(directory)
-        self.fields = fields
         self.suffix = suffix
-        self._fname = f'{"_".join([*fields])}.{suffix}'
 
-        self.fpath = PurePath.joinpath(Path(self.directory), self._fname)
+        vals = []
+        for attr_key, attr_list in metadata_fields.items():
+            for item in attr_list:
+                attr_dict = getattr(metadata, attr_key)
+                vals.append(str(attr_dict[item]))
 
         if append_date:
-            self.date = dt.datetime.now().strftime('%m%d%Y')
+            vals.append(dt.datetime.now().strftime('%m%d%Y'))
+
+        self._fname = f'{"_".join([*vals])}.{suffix}'
+
+        self.fpath = PurePath.joinpath(Path(self.directory), self._fname)
 
         if overwrite:
             self.export(obj, function_kwargs=function_kwargs)
@@ -28,10 +34,10 @@ class _DataExporter(ABC):
             self.prompt(obj, function_kwargs=function_kwargs)
 
     @abstractmethod
-    def export(self, obj: Any, function_kwargs: dict = None):
+    def export(self, obj: Any, function_kwargs: dict = {}):
         pass
 
-    def prompt(self, obj, function_kwargs: dict = None):
+    def prompt(self, obj, function_kwargs: dict = {}):
         if self.fpath.exists():
             answer = input(f'File {self._fname} already exists in {self.directory}. Overwrite (Y/N)?')
             if answer in ['N', 'n', 'No', 'no']:
@@ -50,8 +56,8 @@ class _DataExporter(ABC):
 
 
 class _DataFrameExporter(_DataExporter):
-    def __init__(self, obj: DataFrame, directory: str, suffix: str, fields: list,
-                 append_date: bool = True, overwrite: bool = False, function_kwargs: dict = None):
+    def __init__(self, obj: DataFrame, metadata: Any, metadata_fields: dict, directory: str, suffix: str,
+                 append_date: bool = True, overwrite: bool = False, function_kwargs: dict = {}):
         """
         :param obj:             DataFrame to export
 
@@ -59,7 +65,7 @@ class _DataFrameExporter(_DataExporter):
 
         :param suffix:          Suffix (csv)
 
-        :param fields:          Fields to save as part of filename
+        :param metadata_fields: Fields to save as part of filename
 
         :param append_date:     If True, save date as part of filename
 
@@ -69,16 +75,23 @@ class _DataFrameExporter(_DataExporter):
                                 user-specified saving convention
         """
 
-        super().__init__(obj, directory, suffix, fields, append_date, overwrite, function_kwargs=function_kwargs)
+        super().__init__(obj=obj,
+                         metadata=metadata,
+                         metadata_fields=metadata_fields,
+                         directory=directory,
+                         suffix=suffix,
+                         append_date=append_date,
+                         overwrite=overwrite,
+                         function_kwargs=function_kwargs)
 
-    def export(self, obj: DataFrame, function_kwargs: dict = None):
+    def export(self, obj: DataFrame, function_kwargs: dict = {}):
         obj.to_csv(self.fpath, **function_kwargs)
         print(f'Object saved as {self.fpath}.')
 
 
 class _ArrayExporter(_DataExporter):
-    def __init__(self, obj: ndarray, directory: str, suffix: str, fields: list,
-                 append_date: bool = True, overwrite: bool = False, function_kwargs: dict = None):
+    def __init__(self, obj: ndarray, metadata: Any, metadata_fields: dict, directory: str, suffix: str,
+                 append_date: bool = True, overwrite: bool = False, function_kwargs: dict = {}):
         """
         :param obj:             array to export
 
@@ -96,9 +109,16 @@ class _ArrayExporter(_DataExporter):
                                 user-specified saving convention
         """
 
-        super().__init__(obj, directory, suffix, fields, append_date, overwrite, function_kwargs=function_kwargs)
+        super().__init__(obj=obj,
+                         metadata=metadata,
+                         metadata_fields=metadata_fields,
+                         directory=directory,
+                         append_date=append_date,
+                         suffix=suffix,
+                         overwrite=overwrite,
+                         function_kwargs=function_kwargs)
 
-    def export(self, obj: ndarray, function_kwargs: dict = None):
+    def export(self, obj: ndarray, function_kwargs: dict = {}):
         savetxt(self.fpath, obj, **function_kwargs)
         print(f'Object saved as {self.fpath}.')
 

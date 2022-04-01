@@ -10,10 +10,8 @@ if __name__ == '__main__':
     data = {'Names': ['Aaron', 'Bob', 'Jackie'],
            'ages': [30, 24, 57]}
 
-    d = _DataFrameExporter(obj=DataFrame(data=data),
-                           directory=directory_,
-                           suffix=suffix_,
-                           fields=fields_, function_kwargs={})
+    d = _DataFrameExporter(obj=DataFrame(data=data), metadata=, directory=directory_, suffix=suffix_,
+                           metadata_fields=fields_, function_kwargs={})
     print(d.fpath)
 
     a = _ArrayExporter(obj=ndarray([3, 3]),
