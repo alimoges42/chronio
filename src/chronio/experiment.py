@@ -17,8 +17,8 @@ class Stage:
 
     Stages can be used to specify onsets of environmental cues and stimuli administered as part of an experiment.
 
-    :param stage_name:           Name of the stage_name
-    :type stage_name:            str
+    :param stage_name:      Name of the stage_name
+    :type stage_name:       str
 
     :param stage_duration:  Total duration of the test/observation
     :type stage_duration:   float

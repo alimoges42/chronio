@@ -6,14 +6,14 @@ Module for managing and mapping files associated with multiple specimens.
 """
 
 from __future__ import annotations
-from typing import List
+from typing import List, Dict, Any
 import pathlib
 import pandas as pd
 
-from chronio.structs import BehavioralTimeSeries, NeuroTimeSeries, Metadata
+from chronio.structs import _TimeSeries, BehavioralTimeSeries, NeuroTimeSeries, Metadata
 from chronio.experiment import Stage, stage_from_template
 
-__all__ = ['SessionReference', 'Session']
+__all__ = ['SessionReference', 'Session', 'session_from_row']
 
 
 class SessionReference:
@@ -68,82 +68,86 @@ class SessionReference:
 
 
 class Session:
-    def __init__(self, row: pd.Series, mappings: dict, stage_dir: str = None):
+    def __init__(self, attrs: Dict[str, _TimeSeries], meta: Metadata = Metadata()):
+        for attr_name, dataset in attrs.items():
+            setattr(self, attr_name, dataset)
+        self.meta = meta
 
-        """
-        Built to hold multiple time series datasets as well as metadata about a given recorded session.
-        Instances of this object will have attributes corresponding to index names of the provided pd.Series.
 
-        :param row:         a pd.Series where one or more entries defines a path to a time series csv
-        :type row:          pd.Series
+def session_from_row(row: pd.Series,
+                     mappings: Dict[str, Any],
+                     stage_dir: str,
+                     subset: List[str] = None) -> Session:
+    """
+    :param row:         Typically, this is a row from the SessionReference object.
+    :type row:          pd.Series
 
-        :param mappings:    a dict that maps index names of the row parameter to a supported data structure such as
-                            :class:`chronio.structs.raw_structs.BehavioralTimeSeries` or NeuroTimeSeries
-        :type mappings:     dict
+    :param mappings:    dict that assigns at least one row index to a chronio.BehavioralTimeSeries or
+                        chronio.NeuroTimeSeries object. Indices not mapped are assumed to hold metadata.
+    :type mappings:     dict
 
-        :param stage_dir:   path to a directory that holds the JSON corresponding to the stage_name for this session
-        :type stage_dir:    str
-        """
+    :param stage_dir:   Directory of the location of a stage
+    :type stage_dir:    str
 
-        self.data = row
-        self.behavior_cols = []
-        self.neuro_cols = []
-        self.stage_dir = stage_dir
-        self.stage_name = None
-        self.stage = None
+    :param subset:      If desired, load a subset of columns
+    :type subset:       List[str]
 
-        self.mappings = mappings
+    :return:
+    """
+    if not subset:
+        subset = []
 
-        for key, value in mappings.items():
-            if value == BehavioralTimeSeries:
-                self.behavior_cols.append(key)
-                print(f'BehavioralTimeSeries mapped to column "{key}".')
+    behavior_cols = []
+    neuro_cols = []
+    stage_name = None
+    stage = None
 
-            elif value == NeuroTimeSeries:
-                self.neuro_cols.append(key)
-                print(f'NeuroTimeSeries mapped to column "{key}".')
+    for key, value in mappings.items():
+        if value == BehavioralTimeSeries:
+            behavior_cols.append(key)
+            print(f'BehavioralTimeSeries mapped to column "{key}".')
 
-            elif value == Stage:
-                self.stage_name = row[key]
-                fpath = pathlib.Path(stage_dir)
-                stage_fpath = pathlib.Path.joinpath(fpath, f'{self.stage_name}.json')
-                self.stage = stage_from_template(str(stage_fpath))
-                print(f'Stage mapped to column "{key}".')
+        elif value == NeuroTimeSeries:
+            neuro_cols.append(key)
+            print(f'NeuroTimeSeries mapped to column "{key}".')
 
-        # Assume all remaining columns constitute some form of metadata.
-        # Stage column is also considered metadata.
-        _nonmeta_cols = [*self.behavior_cols, *self.neuro_cols]
+        elif value == Stage:
+            stage_name = row[key]
+            fpath = pathlib.Path(stage_dir)
+            stage_fpath = pathlib.Path.joinpath(fpath, f'{stage_name}.json')
+            stage = stage_from_template(str(stage_fpath))
+            print(f'Stage mapped to column "{key}".')
 
-        self.meta_cols = [idx for idx in self.data.index if idx not in _nonmeta_cols]
-        self.meta = row[self.meta_cols]
-        self.meta.to_dict()
+    # Assume all remaining columns constitute some form of metadata.
+    # Stage column is also considered metadata.
+    _nonmeta_cols = [*behavior_cols, *neuro_cols]
 
-    def load(self, subset: List[str] = []):
-        """
-        Load all or a subset of files associated with this object.
+    meta_cols = [idx for idx in row.index if idx not in _nonmeta_cols]
+    meta = row[meta_cols]
+    meta.to_dict()
 
-        :param subset:  desired index names to load
-        :type subset:   List[str]
-        """
+    if stage:
+        setattr(meta, 'stage', stage)
 
-        cols_to_load = [[*self.behavior_cols, *self.neuro_cols], subset]
-        cols_to_load = set().union(*cols_to_load)
+    cols_to_load = [_nonmeta_cols, subset]
+    cols_to_load = set().union(*cols_to_load)
 
-        attr_names = [col.replace(' ', '_') for col in cols_to_load]
+    attr_names = [col.replace(' ', '_') for col in cols_to_load]
+    attrs = {}
 
-        for col, attr_name in zip(cols_to_load, attr_names):
-            fpath = str(pathlib.Path(self.data[col]))
+    for col, attr_name in zip(cols_to_load, attr_names):
+        fpath = str(pathlib.Path(row[col]))
 
-            # TODO: map other cols to metadata
-            if self.stage_name:
-                metadata = Metadata(fpath=fpath,
-                                    stage=self.stage_name)
-                metadata.set_val('session', self.meta)
-            else:
-                metadata = Metadata(fpath=fpath)
-                metadata.set_val('session', self.meta)
+        # TODO: map other cols to metadata
+        if stage_name:
+            metadata = Metadata(fpath=fpath, stage_name=stage_name)
+            metadata.set_val('session', meta)
+        else:
+            metadata = Metadata(fpath=fpath)
+            metadata.set_val('session', meta)
 
-            setattr(self, attr_name, self.mappings[col](fpath=fpath,
-                                                        metadata=metadata))
+        print(f'Data from column "{col}" successfully loaded as self.{attr_name}.')
+        attrs[attr_name] = mappings[col](fpath=fpath, metadata=metadata)
+    session = Session(attrs=attrs, meta=meta)
 
-            print(f'Data from column "{col}" successfully loaded as self.{attr_name}.')
+    return session

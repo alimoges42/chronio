@@ -24,26 +24,54 @@ __all__ = ['Metadata',
 
 
 class Metadata:
+    """
+    :param fpath:       Path to relevant file. For example, if a Metadata object is attached to a BehavioralTimeSeries,
+                        fpath will refer to the location of the behavioral CSV, while if it is attached to a
+                        SessionReference object, it will refer to the location of the SessionReference CSV file. Upon
+                        instantiation, this parameter can be accessed via self.system['fpath'].
+    :type fpath:        str
+
+    :param stage_name:       Name of stage (if applicable). Upon instantiation, this parameter can be accessed via
+                        self.session['stage'].
+    :type stage_name:        str
+
+    :param fps:         Frames per second (if applicable). Upon instantiation, this parameter can be accessed via
+                        self.session['fps'], but note that it will be automatically updated if a downsampling method
+                        is called.
+    :type fps:          float
+
+    :param trial_type:  Name of the trial type (if applicable). Upon instantiation, this parameter can be accessed via
+                        self.window_params['trial_type'].
+    :type trial_type:   str
+
+    :param indices:     Indices that have been used as references for the window data (if applicable). Upon
+                        instantiation, this parameter can be accessed via self.window_data['indices'].
+    :type indices:      List[int]
+
+    :param n_windows:   Number of windows (if applicable). Upon instantiation, this parameter can be accessed via
+                        self.window_data['n_windows'].
+    :type n_windows:    int
+
+    :param meta_dict:   Additional metadata params. If supplied, will overwrite existing params for those attributes.
+    :type meta_dict:    dict
+    """
+
     def __init__(self,
-                 # System metadata
                  fpath: str = None,
 
-                 # Session metadata
-                 stage: str = None,
+                 stage_name: str = None,
                  fps: float = None,
 
-                 # Window metadata
                  trial_type: str = None,
                  indices: _List[int] = None,
                  n_windows: int = None,
 
-                 # Dictionary that will overwrite established values
                  meta_dict: dict = {}
                  ):
 
         self.system = {'fpath': fpath}
         self.computed = {'fps': fps}
-        self.session = {'stage_name': stage}
+        self.session = {'stage_name': stage_name}
         self.window_params = {'indices': indices,
                               'n_windows': n_windows,
                               'trial_type': trial_type}
@@ -90,7 +118,7 @@ class _Structure(_ABC):
         self.data = data
         self.metadata = metadata
 
-    def export(self, convention: _Convention, function_kwargs: dict = {}, **exporter_kwargs):
+    def export(self, convention: _Convention, **exporter_kwargs):
         """
         Parameters supplied by exporter_kwargs will replace those supplied by the convention object. This is to
         allow users on-the-fly editing without having to specify all the new fields of a convention object if they
@@ -100,6 +128,7 @@ class _Structure(_ABC):
         # Overwrites convention params with user-specified export_kwargs (if supplied)
         export_kwargs = convention.get_params()
         export_kwargs.update(exporter_kwargs)
+        export_kwargs['obj_type'] = self.__class__.__name__
 
         if type(self.data) == _np.ndarray:
             exporter = _ArrayExporter(obj=self.data, **export_kwargs)
@@ -129,8 +158,10 @@ class WindowPane(_Structure):
                         These are then passed to `self.metadata.pane_params`
     :type pane_params:  dict
     """
-    def __init__(self, data: _pd.DataFrame, metadata: Metadata, pane_params: dict = {}):
+    def __init__(self, data: _pd.DataFrame, metadata: Metadata, pane_params: dict = None):
         super().__init__(data=data, metadata=metadata)
+        if not pane_params:
+            pane_params = {}
 
         for key, value in pane_params:
             setattr(self.metadata.pane_params, key, pane_params[key])
@@ -185,12 +216,14 @@ class Window(_Structure):
     def __init__(self,
                  data: _List[_pd.DataFrame],
                  metadata: Metadata,
-                 window_params: dict = {}):
+                 window_params: dict = None):
 
         super().__init__(data=data, metadata=metadata)
+        if not window_params:
+            window_params = {}
 
-        for key, value in window_params:
-            setattr(self.metadata.window_params, key, window_params[key])
+        for key, value in window_params.items():
+            self.metadata.window_params[key] = value
 
         self.metadata.window_params['n_windows'] = len(self.data)
 
@@ -219,23 +252,22 @@ class Window(_Structure):
         _columns = [f'Trial_{i}' for i in range(1, len(self.data) + 1)]
 
         agg = _pd.DataFrame(_np.vstack([window[feature].values for window in self.data]).T,
-                           columns=_columns,
-                           index=self.data[0].index)
+                            columns=_columns,
+                            index=self.data[0].index)
 
         stacked = WindowPane(data=agg,
                              metadata=self.metadata)
         return stacked
 
-    def save_windows(self, save_params: dict):
-
-        pass
-
 
 class _TimeSeries(_Structure):
 
     def __init__(self, data: _Any, metadata: Metadata, fpath: str = None,
-                 read_csv_kwargs: dict = {}):
+                 read_csv_kwargs: dict = None):
         super().__init__(data=data, metadata=metadata)
+
+        if not read_csv_kwargs:
+            read_csv_kwargs = {}
 
         if fpath:
             self.metadata.system['fpath'] = fpath

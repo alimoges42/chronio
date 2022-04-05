@@ -27,10 +27,10 @@ class Convention:
     :param suffix:          The extension of the filename (i.e. csv, xlsx)
     :type suffix:           str
 
-    :param metadata_fields:          Fields of metadata that should be saved.
+    :param metadata_fields: Fields of metadata that should be saved.
                             May correspond to column names of the data contained in
                             :class: `chronio.observations.SessionReference` objects
-    :type metadata_fields:           list
+    :type metadata_fields:  list
 
     :param append_date:     If true, append today's date to the end of the filename. Defaults to False.
     :type append_date:      bool, optional
@@ -39,15 +39,14 @@ class Convention:
     :type overwrite:        bool, optional
 
     :param function_kwargs: Arguments to be passed to the Pandas `pd.read_csv()` function
-    :type function_kwargs:      dict, optional
-
-    :param savetxt_args:    Arguments to be passed to the Numpy `np.savetxt()` function.
-    :type savetxt_args:     dict, optional
-
+    :type function_kwargs:  dict, optional
     """
     def __init__(self, directory: str, suffix: str, metadata_fields: list,
                  append_date: bool = False, overwrite: bool = False,
-                 function_kwargs: dict = {}):
+                 function_kwargs: dict = None):
+        if not function_kwargs:
+            function_kwargs = {}
+
         self.directory = directory
         self.metadata_fields = metadata_fields
         self.suffix = suffix
@@ -87,7 +86,7 @@ class Convention:
 
 def convention_from_template(template_path: str) -> Convention:
     """
-    Load a saved Convention JSON as a Convention object.
+    Load a saved Convention JSON as a :class: `chronio.convention.Convention` object.
 
     :param template_path:   Path to saved JSON template
     :type template_path:    str
