@@ -68,10 +68,10 @@ class _DataFrameExporter(_DataExporter):
     def __init__(self, obj: DataFrame, obj_type: str, metadata: Any, metadata_fields: dict, directory: str, suffix: str,
                  append_date: bool = False, overwrite: bool = False, function_kwargs: dict = None):
         """
-        :param obj:             DataFrame to export
+        :param obj:             DataFrame to io
         :type obj:              pd.DataFrame
 
-        :param metadata:        Metadata to export
+        :param metadata:        Metadata to io
         :type metadata:         Any
 
         :param metadata_fields: Fields to save as part of filename
@@ -117,10 +117,10 @@ class _ArrayExporter(_DataExporter):
     def __init__(self, obj: ndarray, metadata: Any, obj_type: str, metadata_fields: dict, directory: str, suffix: str,
                  append_date: bool = True, overwrite: bool = False, function_kwargs: dict = None):
         """
-        :param obj:             DataFrame to export
+        :param obj:             DataFrame to io
         :type obj:              pd.DataFrame
 
-        :param metadata:        Metadata to export
+        :param metadata:        Metadata to io
         :type metadata:         Any
 
         :param metadata_fields: Fields to save as part of filename

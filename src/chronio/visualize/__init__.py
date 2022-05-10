@@ -1,3 +1,3 @@
-__all__ = ['plotting', 'positional_plots']
+__all__ = ['events', 'plot_styles', 'positional_plots', 'processing', 'trial_plots']
 
 from . import *

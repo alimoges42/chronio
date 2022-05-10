@@ -1,6 +1,6 @@
 from pandas import DataFrame
 from numpy import ndarray
-from chronio.export.exporter import _ArrayExporter, _DataFrameExporter
+from chronio.io.exporters import _ArrayExporter, _DataFrameExporter
 
 
 if __name__ == '__main__':
@@ -10,7 +10,7 @@ if __name__ == '__main__':
     data = {'Names': ['Aaron', 'Bob', 'Jackie'],
            'ages': [30, 24, 57]}
 
-    d = _DataFrameExporter(obj=DataFrame(data=data), metadata=, directory=directory_, suffix=suffix_,
+    d = _DataFrameExporter(obj=DataFrame(data=data), directory=directory_, suffix=suffix_,
                            metadata_fields=fields_, function_kwargs={})
     print(d.fpath)
 

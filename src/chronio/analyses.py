@@ -8,14 +8,15 @@ as well as window alignment.
 Author: Aaron Limoges
 """
 
-import pandas as pd
-import numpy as np
 from collections import defaultdict
 from itertools import groupby
-from typing import List
+from typing import List, Dict, Any
+import pandas as pd
+import numpy as np
 
 
-__all__ = ['frames_to_times',
+__all__ = ['segment_df',
+           'frames_to_times',
            'times_to_frames',
            'event_onsets',
            'event_intervals',
@@ -23,7 +24,91 @@ __all__ = ['frames_to_times',
            'spatial_bins',
            'get_state_durations',
            'windows_aligned',
-           'windows_custom']
+           'windows_custom',
+           'reconstruct_time']
+
+
+def _binary_array(startpoints: list, endpoints: list, duration: float, width: int, frate: float = 1):
+    """
+    Create an array of 1s and 0s, where 1s correspond to events and 0s correspond to lack of events.
+
+    :param startpoints: Points at which each event starts
+    :type startpoints:  list
+
+    :param endpoints:   Points at which each event ends
+    :type endpoints:    list
+
+    :param duration:    Total duration of the desired array (in seconds)
+    :type duration:     float
+
+    :param width:       Number of columns the array should contain. Each column will contain the same values.
+    :type width:        int
+
+    :param frate:       frame rate (frames per second)
+    :type frate:        float
+
+    :return:            np.array where number of rows is determined by frate * duration, and number of columns by width.
+    """
+
+    startpoints = np.array(startpoints * frate)
+    endpoints = np.array(endpoints * frate)
+
+    on_start = 0 if startpoints[0] != 0 else 1
+    on_end = 0 if endpoints[-1] != duration * frate else 1
+
+    events = []
+    intervals = []
+
+    if not on_start:
+        intervals.append(np.zeros(((startpoints[0]), width), int))
+
+    for start, end in zip(startpoints, endpoints):
+        events.append(np.ones((end - start, width), int))
+
+    for start, end in zip(startpoints[1:], endpoints[:-1]):
+        intervals.append(np.zeros((start - end, width), int))
+
+    if not on_end:
+        intervals.append(np.zeros((duration - endpoints[-1], width), int))
+
+    result = [None] * (len(events) + len(intervals))
+
+    if on_start:
+        result[::2] = events
+        result[1::2] = intervals
+
+    else:
+        result[::2] = intervals
+        result[1::2] = events
+
+    result = np.concatenate(result)
+    return result
+
+
+def segment_df(source_df: pd.DataFrame, startpoints: list, endpoints: list):
+    """
+    Given a list of startpoints and endpoints, segment a DataFrame into a list of DataFrames.
+
+    :param source_df:   DataFrame to segment
+    :type source_df:    pd.DataFrame
+
+    :param startpoints: List of indices that determine onset of epochs
+    :type startpoints:  list
+
+    :param endpoints:   List of indices that determine ending of epochs
+    :type endpoints:    list
+
+    :return:            tuple of lists, with the first list corresponding to windows between start and endpoints,
+                        and the second list containing windows outside of that (i.e. the masked windows).
+    """
+    mask = _binary_array(startpoints=startpoints, endpoints=endpoints, duration=source_df.shape[0], width=1, frate=1)
+
+    source_df['Mask'] = mask
+    windows = [g[g.columns[:-1]][g.Mask != 0] for k, g in source_df.groupby((source_df.Mask == 0).cumsum()) if len(g) > 1]
+    inverted = [g[g.columns[:-1]][g.Mask != 1] for k, g in source_df.groupby((source_df.Mask == 1).cumsum()) if len(g) > 1]
+    source_df.drop(columns=['Mask'], inplace=True)
+
+    return windows, inverted
 
 
 def frames_to_times(fps: float, frame_numbers: list) -> list:
@@ -298,3 +383,46 @@ def windows_aligned(source_df:          pd.DataFrame,
             window.set_index([centered_index], inplace=True)
 
     return windows
+
+
+def reconstruct_time(trial_onsets: Dict[str, list],
+                     trial_durations: Dict[str, Any],
+                     stage_duration: float,
+                     fps: float = 1):
+    """
+    Cast known event times to a pandas DataFrame.
+
+    :param trial_onsets:    A dict whose keys are names of trial types and whose values are a list of onset times
+                            (in seconds) for that trial type
+    :type trial_onsets:     Dict[str, list]
+
+    :param trial_durations: A dict whose keys are names of trial types and whose values are the durations (in seconds)
+                            for each trial type
+    :type trial_durations:  Dict[str, Any]
+
+    :param stage_duration:  Total duration of the stage (in seconds)
+    :type stage_duration:   float
+
+    :param fps:             Frame rate (frames per second)
+    :type fps:              float
+
+    :return:                A t x n pd.DataFrame, where t represents timestamps x fps, and n represents to the number
+                            of trial types.
+    """
+
+    if sorted(trial_onsets.keys()) != sorted(trial_durations.keys()):
+        raise ValueError('Keys of inputs dicts do not match.')
+
+    num_features = len(trial_onsets.keys())
+
+    _arr = np.zeros((stage_duration * fps, num_features))
+
+    for i, (trial_type, onsets) in enumerate(trial_onsets.items()):
+        trial_dur = trial_durations[trial_type]
+        print(onsets)
+        for onset in onsets:
+            _arr[onset * fps: (onset + trial_dur) * fps, i] = 1
+
+    _arr = pd.DataFrame(_arr, columns=trial_onsets.keys(), index=np.arange(0, len(_arr)))
+
+    return _arr

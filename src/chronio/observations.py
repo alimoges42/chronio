@@ -82,8 +82,9 @@ def session_from_row(row: pd.Series,
     :param row:         Typically, this is a row from the SessionReference object.
     :type row:          pd.Series
 
-    :param mappings:    dict that assigns at least one row index to a chronio.BehavioralTimeSeries or
-                        chronio.NeuroTimeSeries object. Indices not mapped are assumed to hold metadata.
+    :param mappings:    dict that assigns at least one row index to a :class: `chronio.structs.BehavioralTimeSeries` or
+                        :class: `chronio.structs.NeuroTimeSeries` object.
+                        Indices not mapped are assumed to hold metadata.
     :type mappings:     dict
 
     :param stage_dir:   Directory of the location of a stage

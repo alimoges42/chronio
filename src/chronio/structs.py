@@ -14,11 +14,12 @@ from scipy.stats import sem as _sem
 
 import chronio.analyses as _analyses
 from chronio.convention import Convention as _Convention
-from chronio.export.exporter import _DataFrameExporter, _ArrayExporter
+from chronio.io.exporters import _DataFrameExporter, _ArrayExporter
 
 __all__ = ['Metadata',
            'WindowPane',
            'Window',
+           'EventData',
            'BehavioralTimeSeries',
            'NeuroTimeSeries']
 
@@ -134,7 +135,7 @@ class _Structure(_ABC):
             exporter = _ArrayExporter(obj=self.data, **export_kwargs)
 
         elif type(self.data) == _pd.DataFrame:
-            # TODO: Support both CSV and XLSX export options - could be achieved by editing _DataFrameExporter?
+            # TODO: Support both CSV and XLSX io options - could be achieved by editing _DataFrameExporter?
             exporter = _DataFrameExporter(obj=self.data,
                                           metadata=self.metadata,
                                           **export_kwargs)
@@ -260,6 +261,12 @@ class Window(_Structure):
         return stacked
 
 
+class EventData(_Structure):
+    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None):
+        super().__init__(data=data, metadata=metadata, fpath=fpath)
+
+
+
 class _TimeSeries(_Structure):
 
     def __init__(self, data: _Any, metadata: Metadata, fpath: str = None,
@@ -300,12 +307,14 @@ class _TimeSeries(_Structure):
         y_new = f(x_new)
         idx = _np.arange(0, len(y_new), 1)
 
+        df = _pd.DataFrame(index=idx, columns=self.data.columns, data=y_new)
+
         if inplace:
-            self.data = _pd.DataFrame(index=idx, columns=self.data.columns, data=y_new)
+            self.data = df
             self._update_fps()
 
         else:
-            return _pd.DataFrame(index=idx, columns=self.data.columns, data=y_new)
+            return self.__class__(data=df, metadata=self.metadata, fpath=self.metadata.system['fpath'])
 
     def downsample_by_time(self, interval: float, method: str = 'mean', inplace=False):
         """
@@ -339,7 +348,7 @@ class _TimeSeries(_Structure):
             self._update_fps()
 
         else:
-            return binned
+            return self.__class__(data=binned, metadata=self.metadata, fpath=self.metadata.system['fpath'])
 
     def event_onsets(self, cols: list) -> dict:
         return _analyses.event_onsets(self.data, cols=cols)
@@ -400,7 +409,7 @@ class _TimeSeries(_Structure):
             if binarize:
                 data[columns][data[columns] >= thr] = 1
 
-            return data
+            return self.__class__(data=data, metadata=self.metadata, fpath=self.metadata.system['fpath'])
 
     def binarize(self, columns: _List[str] = None, inplace: bool = False):
         """
@@ -421,7 +430,7 @@ class _TimeSeries(_Structure):
             data = self.data.copy(deep=True)
             data[columns][data[columns] != 0] = 1
 
-            return data
+            return self.__class__(data=data, metadata=self.metadata, fpath=self.metadata.system['fpath'])
 
     def split_by_trial(self,
                        indices: list,
@@ -456,6 +465,48 @@ class _TimeSeries(_Structure):
 
         return trials
 
+    def normalize(self, window: _List[int] = None, columns: _List[str] = None, inplace=False):
+        """
+        Normalize a dataset to some window. Normalization is achieved via a z-scoring-like method,
+        wherein a window may be established as a baseline mean. If no window is specified, the entire time
+        series is used as the baseline mean.
+
+        :param window:  A list of two indices, where `window[0]` designates beginning of window,
+                        and `window[1]` designates the end of the window.
+        :type window:   List[int]
+
+        :param columns: A list which, if supplied, applies normalization only to the specified columns.
+        :type columns:  List[str]
+
+        :param inplace: If True, update `self.data` with new values. If False, return a new object.
+        :type inplace:  bool
+
+        :return:        Derivative TimeSeries class.
+        """
+
+        if columns:
+            data = self.data[columns]
+        else:
+            data = self.data
+
+        if window:
+            mean = _np.nanmean(data.values[window[0]: window[1]])
+            std = _np.nanstd(data.values[window[0]: window[1]])
+
+        else:
+            mean = _np.nanmean(data.values)
+            std = _np.nanstd(data.values)
+
+        z = (data.values - mean) / std
+        z = _pd.DataFrame(z, columns=data.columns, index=data.index)
+
+        if inplace:
+            self.data = z
+            return None
+
+        else:
+            return self.__class__(data=z, metadata=self.metadata, fpath=self.metadata.system['fpath'])
+
 
 class BehavioralTimeSeries(_TimeSeries):
 
@@ -480,6 +531,7 @@ class NeuroTimeSeries(_TimeSeries):
     Data in the NeuroTimeSeries class are assumed to be homogeneous. For example, each column may represent a neuron's
     activity, a channel from a recording array, etc.
     """
+
     def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None):
         super().__init__(data=data, metadata=metadata, fpath=fpath)
 
