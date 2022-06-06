@@ -11,18 +11,17 @@ Author: Aaron Limoges
 from collections import defaultdict
 from itertools import groupby
 from typing import List, Dict, Any
+
 import pandas as pd
 import numpy as np
+from scipy.ndimage import label
 
 
 __all__ = ['segment_df',
            'frames_to_times',
            'times_to_frames',
-           'event_onsets',
-           'event_intervals',
-           'streaks_to_lists',
+           'get_events',
            'spatial_bins',
-           'get_state_durations',
            'windows_aligned',
            'windows_custom',
            'reconstruct_time']
@@ -135,83 +134,6 @@ def times_to_frames(fps: float, timestamps: list) -> list:
     return list(map(lambda x: int(x * fps), timestamps))
 
 
-def event_onsets(source_df: pd.DataFrame,
-                 cols: list) -> dict:
-    """
-    Obtain the frame numbers that signify onsets of events in desired columns of events.
-
-    :param source_df:   original dataframe to use
-
-    :param cols:        list of columns of the dataframe for which you would like IEIs to be computed
-
-    :return:            dict of dicts containing the frame numbers corresponding to each onset of an event
-                        for each specified column
-    """
-    onsets = {}
-    for col in cols:
-
-        onsets[col] = {}
-
-        col_states = source_df[col].to_frame()
-        col_states['streak_start'] = col_states[col].ne(col_states[col].shift()).astype(str)
-        col_states = col_states.groupby(col)
-
-        for state, group in col_states:
-            onsets[col][state] = group[group['streak_start'] == 'True'].index.values
-
-    return onsets
-
-
-def event_intervals(source_df: pd.DataFrame,
-                    cols: list) -> dict:
-    """
-    Compute the inter-event intervals (IEIs) for desired columns of a DataFrame.
-
-    :param source_df:   original dataframe to use
-
-    :param cols:        list of columns of the dataframe for which you would like IEIs to be computed
-
-
-    :return:            dict of event interval data for each specified column
-    """
-
-    results = defaultdict(pd.DataFrame)
-
-    for col in cols:
-        data = {'Elements': [], 'Counts': []}
-
-        streaks = [list(group) for key, group in groupby(source_df[col].values.tolist())]
-
-        for streak in streaks:
-            data['Elements'].append(streak[0])
-            data['Counts'].append(len(streak))
-
-        results[col] = pd.DataFrame.from_dict(data=data)
-
-    return results
-
-
-def streaks_to_lists(streak_df: pd.DataFrame) -> dict:
-    """
-    Convert streaks to lists.
-
-    :param streak_df:   A DataFrame of streaks with the column names of 'Elements' and 'Streaks'.
-                        These correspond to the DataFrames contained in the dict values returned by
-                        the event_intervals function.
-
-
-    :return:            Returns elements_dict, a dictionary of each unique element found within the
-                        'Elements' column of the streak_df. Each value is simply the value originally
-                        contained within the 'Counts' column.
-    """
-
-    elements_dict = {}
-    for uniq in streak_df['Elements'].unique():
-        elements_dict[uniq] = streak_df.loc[streak_df['Elements'] == uniq]['Counts'].tolist()
-
-    return elements_dict
-
-
 def spatial_bins(source_df: pd.DataFrame,
                  x_col: str,
                  y_col: str,
@@ -263,43 +185,6 @@ def spatial_bins(source_df: pd.DataFrame,
     H = H.T
 
     return H, x_edges, y_edges
-
-
-def get_state_durations(source_df: pd.DataFrame,
-                        cols: List[str],
-                        values: list = None,
-                        fps: float = 30) -> pd.DataFrame:
-    """
-    Computes the durations of states in specific columns of a DataFrame.
-
-    :param source_df:   DataFrame
-
-    :param cols:        Columns for which the durations are to be computed
-
-    :param values:      Values for which duration will be computed. If None, will extract duration for all states
-
-    :param fps:         Imaging rate (frames per second) of df
-
-    :return:            DataFrame whose columns are equivalent to "cols" parameter and whose rows are either
-                            1) a list of corresponding to "values" parameter (if provided), or
-                            2) all unique states found across all columns.
-
-                        Each element is the duration of each state (in seconds).
-
-    """
-
-    durations = pd.DataFrame()
-
-    for col in cols:
-        col_durations = source_df[col].value_counts() / fps
-
-        if values:
-            durations[col] = col_durations[values]
-
-        else:
-            durations[col] = col_durations
-
-    return durations
 
 
 def windows_custom(source_df: pd.DataFrame, startpoints: list, endpoints: list) -> list:
@@ -426,3 +311,68 @@ def reconstruct_time(trial_onsets: Dict[str, list],
     _arr = pd.DataFrame(_arr, columns=trial_onsets.keys(), index=np.arange(0, len(_arr)))
 
     return _arr
+
+
+def get_events(source_df: pd.DataFrame,
+               cols: List[str] = None,
+               get_intervals: bool = True):
+
+    if cols is None:
+        cols = source_df.columns
+
+    results = {}
+
+    for col in cols:
+        event_comps, num_events = label(source_df[col].values)
+
+        events_dict = {'epoch type': [],
+                       'epoch onset': [],
+                       'epoch end': [],
+                       'epoch duration': []}
+
+        for i in range(1, num_events + 1):
+            events = np.argwhere(event_comps == i)
+            event_onset = events[0]
+            event_end = events[-1]
+            event_dur = event_end - event_onset + 1
+
+            events_dict['epoch type'].append('event')
+            events_dict['epoch onset'].append(*event_onset)
+            events_dict['epoch end'].append(*event_end)
+            events_dict['epoch duration'].append(*event_dur)
+
+        if get_intervals:
+            interval_comps, num_intervals = label(np.abs(source_df[col].values - 1))
+            intervals_dict = {'epoch type': [],
+                              'epoch onset': [],
+                              'epoch end': [],
+                              'epoch duration': []}
+
+            for i in range(1, num_intervals + 1):
+                intervals = np.argwhere(interval_comps == i)
+                interval_onset = intervals[0]
+                interval_end = intervals[-1]
+                interval_dur = interval_end - interval_onset + 1
+
+                intervals_dict['epoch type'].append('interval')
+                intervals_dict['epoch onset'].append(*interval_onset)
+                intervals_dict['epoch end'].append(*interval_end)
+                intervals_dict['epoch duration'].append(*interval_dur)
+
+            events_df = pd.DataFrame(events_dict)
+            intervals_df = pd.DataFrame(intervals_dict)
+            merged_df = pd.concat([events_df, intervals_df], axis=0)
+
+            results[col] = merged_df
+
+        else:
+            events_df = pd.DataFrame(events_dict)
+            results[col] = events_df
+
+    return results
+
+
+if __name__ == '__main__':
+    df = pd.DataFrame(data=np.random.randint(0, 2, (100, 3)), columns=['Col1', 'Col2', 'Col3'])
+    results = get_events(df, cols=['Col1', 'Col3'], get_intervals=True)
+    print(results)

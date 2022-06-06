@@ -9,6 +9,7 @@ from abc import ABC as _ABC
 from typing import Any as _Any, List as _List
 import numpy as _np
 import pandas as _pd
+import pandas as pd
 from scipy.interpolate import interp1d as _interp1d
 from scipy.stats import sem as _sem
 
@@ -261,12 +262,6 @@ class Window(_Structure):
         return stacked
 
 
-class EventData(_Structure):
-    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None):
-        super().__init__(data=data, metadata=metadata, fpath=fpath)
-
-
-
 class _TimeSeries(_Structure):
 
     def __init__(self, data: _Any, metadata: Metadata, fpath: str = None,
@@ -350,28 +345,14 @@ class _TimeSeries(_Structure):
         else:
             return self.__class__(data=binned, metadata=self.metadata, fpath=self.metadata.system['fpath'])
 
-    def event_onsets(self, cols: list) -> dict:
-        return _analyses.event_onsets(self.data, cols=cols)
+    def get_events(self, cols: _List[str] = None, get_intervals: bool = True) -> dict:
+        events = _analyses.get_events(source_df=self.data, cols=cols, get_intervals=get_intervals)
 
-    def event_intervals(self, cols: list) -> dict:
-        return _analyses.event_intervals(self.data, cols=cols)
+        events_dict = {}
+        for col, event in events.items():
+            events_dict[col] = EventData(data=event, metadata=self.metadata)
 
-    def get_streaks(self, cols: list) -> dict:
-
-        """
-        :param cols:    Columns on which to compute streaks
-
-
-        :return:        Dict of dicts, where streaks[col][event] allows access to a list of streak durations.
-        """
-        streaks = {}
-
-        ieis = _analyses.event_intervals(self.data, cols=cols)
-
-        for col, data in ieis.items():
-            streaks[col] = _analyses.streaks_to_lists(streak_df=data)
-
-        return streaks
+        return events_dict
 
     def threshold(self, thr: float, binarize: bool = False, columns: _List[str] = None, inplace: bool = False):
         """
@@ -552,3 +533,35 @@ class NeuroTimeSeries(_TimeSeries):
             pass
 
         return _Structure(data=None, metadata=self.metadata)
+
+
+class EventData(_Structure):
+    def __init__(self, data: pd.DataFrame = None, metadata: Metadata = Metadata(), fpath: str = None):
+        # Check to make sure input DataFrame contains correct columns
+        if data.columns != ['epoch type', 'epoch onset', 'epoch end', 'epoch duration']:
+            raise ValueError('Input parameter "data" must be a DataFrame with columns matching: '
+                             '["epoch type", "epoch onset", "epoch end", "epoch duration"].')
+        super().__init__(data=data, metadata=metadata)
+
+        if fpath:
+            self.metadata.system['fpath'] = fpath
+
+            self.data = _pd.read_csv(self.metadata.system['fpath'])
+
+    def to_times(self, fps: float = None, inplace: bool = False):
+        if fps is None:
+            fps = self.metadata.computed['fps']
+        df = self.data
+        df['epoch onset'] = _analyses.frames_to_times(fps, df['epoch onset'].values)
+        df['epoch end'] = _analyses.frames_to_times(fps, df['epoch end'].values)
+        df['epoch duration'] = _analyses.frames_to_times(fps, df['epoch duration'].values)
+
+        if inplace:
+            self.data = df
+
+        else:
+            return self.__class__(data=df, metadata=self.metadata)
+
+
+
+
