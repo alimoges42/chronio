@@ -33,7 +33,7 @@ class SessionReference:
         self.fpath = fpath
         self.data = reference_data
 
-        if not self.data:
+        if self.data is None:
             if self.fpath:
                 if pathlib.PurePath(self.fpath).suffix == '.csv':
                     self.data = pd.read_csv(fpath)
@@ -64,7 +64,7 @@ class SessionReference:
             else:
                 df = df[df[col] == val]
 
-        return SessionReference(fpath=self.fpath, reference_data=df)
+        return self.__class__(fpath=self.fpath, reference_data=df)
 
 
 class Session:

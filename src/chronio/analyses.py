@@ -315,7 +315,27 @@ def reconstruct_time(trial_onsets: Dict[str, list],
 
 def get_events(source_df: pd.DataFrame,
                cols: List[str] = None,
-               get_intervals: bool = True):
+               get_intervals: bool = True) -> dict:
+    """
+    Find event onsets, ends, and durations for a given dataframe. This will only work on columns
+    of the DataFrame that contain binary values. It is assumed that 1s correspond to the occurrence of
+    an event, while 0s indicate the lack of an event. This function uses a connected components algorithm to
+    identify events and from there will record the onset, end, and duration of each event within a column.
+
+    :param source_df:       Original DataFrame to get events from.
+    :type source_df:        pd.DataFrame
+
+    :param cols:            If provided, events will be obtained only for those columns.
+                            If not provided, the function will get events from all columns of source_df.
+    :type cols:             List[str]
+
+    :param get_intervals:   If True, also return information on each interval between events in the
+                            resulting DataFrame.
+    :type get_intervals:    bool
+
+    :return:                dict whose keys correspond to each column in cols parameter and whose
+                            values are DataFrames of events (and intervals if get_intervals=True).
+    """
 
     if cols is None:
         cols = source_df.columns

@@ -7,6 +7,8 @@ Data structures for holding data and metadata associated with a specimen.
 
 from abc import ABC as _ABC
 from typing import Any as _Any, List as _List
+from collections.abc import Mapping
+
 import numpy as _np
 import pandas as _pd
 import pandas as pd
@@ -68,6 +70,8 @@ class Metadata:
                  indices: _List[int] = None,
                  n_windows: int = None,
 
+                 measure: str = None,
+
                  meta_dict: dict = {}
                  ):
 
@@ -77,7 +81,7 @@ class Metadata:
         self.window_params = {'indices': indices,
                               'n_windows': n_windows,
                               'trial_type': trial_type}
-        self.pane_params = {}
+        self.pane_params = {'measure': measure}
 
         self.update(meta_dict=meta_dict)
 
@@ -162,11 +166,12 @@ class WindowPane(_Structure):
     """
     def __init__(self, data: _pd.DataFrame, metadata: Metadata, pane_params: dict = None):
         super().__init__(data=data, metadata=metadata)
+
         if not pane_params:
             pane_params = {}
 
-        for key, value in pane_params:
-            setattr(self.metadata.pane_params, key, pane_params[key])
+        for key, value in pane_params.items():
+            self.metadata.pane_params[key] = pane_params[key]
 
     def __str__(self):
         return f'{self.__class__.__name__} object of shape {self.data.shape}'
@@ -258,7 +263,8 @@ class Window(_Structure):
                             index=self.data[0].index)
 
         stacked = WindowPane(data=agg,
-                             metadata=self.metadata)
+                             metadata=self.metadata,
+                             pane_params={'measure': feature})
         return stacked
 
 
@@ -279,7 +285,7 @@ class _TimeSeries(_Structure):
         self._update_fps()
 
     def _update_fps(self):
-        self.metadata.computed['fps'] = self.data.shape[0] / round(self.data['Time'].values[-1], 0)
+        self.metadata.computed['fps'] = round(self.data.shape[0] / self.data['Time'].values[-1], 2)
 
     def downsample_to_length(self, method: str = 'nearest', length: int = None, inplace=False):
         """
@@ -325,7 +331,7 @@ class _TimeSeries(_Structure):
         # Currently supported methods
         methods = ['mean']
 
-        bins = _np.arange(0, self.data['Time'].values[-1], interval)
+        bins = _np.arange(0, self.data['Time'].values[-1] + 1, interval)
 
         if method == 'mean':
             binned = self.data.groupby(_pd.cut(self.data["Time"], bins)).mean()
@@ -335,7 +341,7 @@ class _TimeSeries(_Structure):
 
         binned.drop(columns=['Time'], inplace=True)
         binned.reset_index(inplace=True)
-        binned['Time'] = _np.arange(self.data['Time'].values[0], self.data['Time'].values[-1] - interval, interval)
+        binned['Time'] = _np.arange(self.data['Time'].values[0], self.data['Time'].values[-1] - interval + 1, interval)
         binned.set_index('Time')
 
         if inplace:
@@ -392,7 +398,7 @@ class _TimeSeries(_Structure):
 
             return self.__class__(data=data, metadata=self.metadata, fpath=self.metadata.system['fpath'])
 
-    def binarize(self, columns: _List[str] = None, inplace: bool = False):
+    def binarize(self, columns: _List[str] = None, method: str = 'round', inplace: bool = False):
         """
         Binarize a dataset. All nonzero entries (including negative numbers!!) will be set to 1.
 
@@ -403,14 +409,33 @@ class _TimeSeries(_Structure):
         :returns:           If inplace == False, returns the binarized dataset.
                             If inplace == True, modify inplace and return None
         """
+
+        if columns is None:
+            columns = self.data.columns
+
+        data = self.data.copy(deep=True)
+
+        if method == 'round':
+            data.loc[:, columns] = data.loc[:, columns].round(0)
+            data[columns] = data.loc[:, columns].astype(_np.int16)
+
+        elif method == 'hold_ones':
+            data.loc[:, columns][data.loc[:, columns] != 1] = 0
+            data[columns] = data.loc[:, columns].astype(_np.int16)
+
+        elif method == 'hold_zeros':
+            data.loc[:, columns][data.loc[:, columns] != 0] = 1
+            data[columns] = data.loc[:, columns].astype(_np.int16)
+
+        else:
+            valid_methods = ['round', 'hold_ones', 'hold_zeros']
+            raise ValueError(f'Specified method not supported. Valid methods are {valid_methods}.')
+
         if inplace:
-            self.data[columns][self.data[columns] != 0] = 1
+            self.data = data
             return None
 
         else:
-            data = self.data.copy(deep=True)
-            data[columns][data[columns] != 0] = 1
-
             return self.__class__(data=data, metadata=self.metadata, fpath=self.metadata.system['fpath'])
 
     def split_by_trial(self,
@@ -538,9 +563,9 @@ class NeuroTimeSeries(_TimeSeries):
 class EventData(_Structure):
     def __init__(self, data: pd.DataFrame = None, metadata: Metadata = Metadata(), fpath: str = None):
         # Check to make sure input DataFrame contains correct columns
-        if data.columns != ['epoch type', 'epoch onset', 'epoch end', 'epoch duration']:
-            raise ValueError('Input parameter "data" must be a DataFrame with columns matching: '
-                             '["epoch type", "epoch onset", "epoch end", "epoch duration"].')
+        # if data.columns != ['epoch type', 'epoch onset', 'epoch end', 'epoch duration']:
+        #   raise ValueError('Input parameter "data" must be a DataFrame with columns matching: '
+        #                    '["epoch type", "epoch onset", "epoch end", "epoch duration"].')
         super().__init__(data=data, metadata=metadata)
 
         if fpath:
@@ -563,5 +588,62 @@ class EventData(_Structure):
             return self.__class__(data=df, metadata=self.metadata)
 
 
+class DataCollection(Mapping):
+    def __init__(self, datasets: _Any, metadata: Metadata = None, field_mapper = None):
+        datasets_ = {}
+        if type(datasets) == list:
+            for d in datasets:
+                if type(d) == _Structure:
+                    datasets_[d.metadata[field_mapper]] = d
+                else:
+                    raise TypeError(f'Type {type(d)} is not supported for DataCollection object.')
+
+        elif type(datasets) == dict:
+            for name, d in datasets.items:
+                if type(d) == _Structure:
+                    datasets_[name] = d
+                else:
+                    raise TypeError(f'Type {type(d)} is not supported for DataCollection object.')
+
+        self.datasets = datasets_
+        self.metadata = metadata
+
+    def __getitem__(self, key):
+        return self.datasets[key]
+
+    def __iter__(self):
+        return iter(self.datasets)
+
+    def __len__(self):
+        return len(self.datasets)
+
+    def __repr__(self):
+        return f"{type(self).__name__}({self.datasets})"
+
+    def export(self, convention: _Convention, subset: list = None, **exporter_kwargs):
+        """
+        Parameters supplied by exporter_kwargs will replace those supplied by the convention object. This is to
+        allow users on-the-fly editing without having to specify all the new fields of a convention object if they
+        want to make a minor change to the convention.
+        """
+
+        # Overwrites convention params with user-specified export_kwargs (if supplied)
+        export_kwargs = convention.get_params()
+        export_kwargs.update(exporter_kwargs)
+        export_kwargs['obj_type'] = self.__class__.__name__
+
+        for name, dataset in self.datasets.items():
+            if name in subset:
+                if type(dataset.data) == _np.ndarray:
+                    exporter = _ArrayExporter(obj=dataset.data, **export_kwargs)
+
+                elif type(dataset.data) == _pd.DataFrame:
+                    # TODO: Support both CSV and XLSX io options - could be achieved by editing _DataFrameExporter?
+                    exporter = _DataFrameExporter(obj=dataset.data,
+                                                  metadata=dataset.metadata,
+                                                  **export_kwargs)
+
+                else:
+                    raise ValueError(f'No export protocol for {type(dataset.data)} exists.')
 
 
