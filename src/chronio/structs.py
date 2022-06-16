@@ -347,9 +347,10 @@ class _TimeSeries(_Structure):
         if inplace:
             self.data = binned
             self._update_fps()
+            return None
 
         else:
-            return self.__class__(data=binned, metadata=self.metadata, fpath=self.metadata.system['fpath'])
+            return self.__class__(data=binned, metadata=self.metadata)
 
     def get_events(self, cols: _List[str] = None, get_intervals: bool = True) -> dict:
         events = _analyses.get_events(source_df=self.data, cols=cols, get_intervals=get_intervals)
@@ -436,7 +437,7 @@ class _TimeSeries(_Structure):
             return None
 
         else:
-            return self.__class__(data=data, metadata=self.metadata, fpath=self.metadata.system['fpath'])
+            return self.__class__(data=data, metadata=self.metadata)
 
     def split_by_trial(self,
                        indices: list,
@@ -511,7 +512,7 @@ class _TimeSeries(_Structure):
             return None
 
         else:
-            return self.__class__(data=z, metadata=self.metadata, fpath=self.metadata.system['fpath'])
+            return self.__class__(data=z, metadata=self.metadata)
 
 
 class BehavioralTimeSeries(_TimeSeries):
