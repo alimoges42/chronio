@@ -7,7 +7,7 @@ Data structures for holding data and metadata associated with a specimen.
 
 from abc import ABC as _ABC
 from typing import Any as _Any, List as _List
-from collections.abc import Mapping
+from collections.abc import Mapping as _Mapping, Iterable as _Iterable
 
 import numpy as _np
 import pandas as _pd
@@ -270,7 +270,7 @@ class Window(_Structure):
 
 class _TimeSeries(_Structure):
 
-    def __init__(self, data: _Any, metadata: Metadata, fpath: str = None,
+    def __init__(self, data: _Any, metadata: Metadata, fpath: str = None, time_col: str = None,
                  read_csv_kwargs: dict = None):
         super().__init__(data=data, metadata=metadata)
 
@@ -283,9 +283,10 @@ class _TimeSeries(_Structure):
             self.data = _pd.read_csv(self.metadata.system['fpath'], **read_csv_kwargs)
 
         self._update_fps()
+        self._time_col = time_col
 
     def _update_fps(self):
-        self.metadata.computed['fps'] = round(self.data.shape[0] / self.data['Time'].values[-1], 2)
+        self.metadata.computed['fps'] = round(self.data.shape[0] / self.data[self._time_col].values[-1], 2)
 
     def downsample_to_length(self, method: str = 'nearest', length: int = None, inplace=False):
         """
@@ -315,7 +316,7 @@ class _TimeSeries(_Structure):
             self._update_fps()
 
         else:
-            return self.__class__(data=df, metadata=self.metadata, fpath=self.metadata.system['fpath'])
+            return self.__class__(data=df, metadata=self.metadata, time_col=self._time_col)
 
     def downsample_by_time(self, interval: float, method: str = 'mean', inplace=False):
         """
@@ -331,18 +332,18 @@ class _TimeSeries(_Structure):
         # Currently supported methods
         methods = ['mean']
 
-        bins = _np.arange(0, self.data['Time'].values[-1] + 1, interval)
+        bins = _np.arange(0, self.data[self._time_col].values[-1] + 1, interval)
 
         if method == 'mean':
-            binned = self.data.groupby(_pd.cut(self.data["Time"], bins)).mean()
+            binned = self.data.groupby(_pd.cut(self.data[self._time_col], bins)).mean()
 
         else:
             raise ValueError(f'Method {method} not recognized. Currently accepted methods are {methods}')
 
-        binned.drop(columns=['Time'], inplace=True)
+        binned.drop(columns=[self._time_col], inplace=True)
         binned.reset_index(inplace=True)
-        binned['Time'] = _np.arange(self.data['Time'].values[0], self.data['Time'].values[-1] - interval + 1, interval)
-        binned.set_index('Time')
+        binned[self._time_col] = _np.arange(self.data[self._time_col].values[0], self.data[self._time_col].values[-1] - interval + 1, interval)
+        binned.set_index(self._time_col)
 
         if inplace:
             self.data = binned
@@ -350,7 +351,7 @@ class _TimeSeries(_Structure):
             return None
 
         else:
-            return self.__class__(data=binned, metadata=self.metadata)
+            return self.__class__(data=binned, metadata=self.metadata, time_col=self._time_col)
 
     def get_events(self, cols: _List[str] = None, get_intervals: bool = True) -> dict:
         events = _analyses.get_events(source_df=self.data, cols=cols, get_intervals=get_intervals)
@@ -397,11 +398,13 @@ class _TimeSeries(_Structure):
             if binarize:
                 data[columns][data[columns] >= thr] = 1
 
-            return self.__class__(data=data, metadata=self.metadata, fpath=self.metadata.system['fpath'])
+            return self.__class__(data=data, metadata=self.metadata, time_col=self._time_col)
 
     def binarize(self, columns: _List[str] = None, method: str = 'round', inplace: bool = False):
         """
         Binarize a dataset. All nonzero entries (including negative numbers!!) will be set to 1.
+
+        :param method:
 
         :param columns: Columns to binarize.
 
@@ -437,7 +440,7 @@ class _TimeSeries(_Structure):
             return None
 
         else:
-            return self.__class__(data=data, metadata=self.metadata)
+            return self.__class__(data=data, metadata=self.metadata, time_col=self._time_col)
 
     def split_by_trial(self,
                        indices: list,
@@ -512,7 +515,7 @@ class _TimeSeries(_Structure):
             return None
 
         else:
-            return self.__class__(data=z, metadata=self.metadata)
+            return self.__class__(data=z, metadata=self.metadata, time_col=self._time_col)
 
 
 class BehavioralTimeSeries(_TimeSeries):
@@ -523,8 +526,8 @@ class BehavioralTimeSeries(_TimeSeries):
     The BehavioralTimeSeries class, unlike the NeuroTimeSeries class, does not assume that all columns
     represent the same form of data, nor that each column is expressed in the same units.
     """
-    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None):
-        super().__init__(data=data, metadata=metadata, fpath=fpath)
+    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None, time_col: str = None):
+        super().__init__(data=data, metadata=metadata, fpath=fpath, time_col=time_col)
 
     def compute_velocity(self, x_col: str, y_col: str):
         pass
@@ -539,8 +542,8 @@ class NeuroTimeSeries(_TimeSeries):
     activity, a channel from a recording array, etc.
     """
 
-    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None):
-        super().__init__(data=data, metadata=metadata, fpath=fpath)
+    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None, time_col: str = None):
+        super().__init__(data=data, metadata=metadata, fpath=fpath, time_col=time_col)
 
     def correlate(self, axis='cells', method='spearman') -> _Structure:
         methods = ['spearman', 'pearson']
@@ -588,9 +591,83 @@ class EventData(_Structure):
         else:
             return self.__class__(data=df, metadata=self.metadata)
 
+    def events_during(self, windows: _List[list], hanging_events: str = 'none', inplace=False):
+        """
+        Select events only during specific windows.
 
-class DataCollection(Mapping):
-    def __init__(self, datasets: _Any, metadata: Metadata = None, field_mapper = None):
+        :param windows:
+        :param hanging_events:
+        :param inplace:
+        :return:
+        """
+        valid_hanging_events = ['start', 'end', 'both', 'none']
+
+        if hanging_events not in valid_hanging_events:
+            raise ValueError(f'Invalid input for hanging_events. Valid inputs are {valid_hanging_events}.')
+
+        dfs = []
+
+        for tup in windows:
+            print(tup)
+
+            if hanging_events in 'start':
+                df = self.data[self.data['epoch end'].between(tup[0], tup[1])]
+
+            elif hanging_events in 'end':
+                df = self.data[self.data['epoch onset'].between(tup[0], tup[1])]
+
+            elif hanging_events in 'both':
+                df = self.data[self.data['epoch end'].between(tup[0], tup[1])]
+                df2 = self.data[self.data['epoch onset'].between(tup[0], tup[1])]
+
+                if len(df.index) > 0:
+                    idx_start = df.index[0]
+                else:
+                    idx_start = 0
+
+                df = df.merge(df2, how='outer')
+                df.index = [i + idx_start for i in range(0, len(df))]
+
+            elif hanging_events in 'none':
+                df = self.data[self.data['epoch onset'].between(tup[0], tup[1])]
+                df2 = self.data[self.data['epoch end'].between(tup[0], tup[1])]
+
+                if len(df.index) > 0:
+                    idx_start = df.index[0]
+                else:
+                    idx_start = 0
+
+                df = df.merge(df2, how='inner')
+                df.index = [i + idx_start for i in range(0, len(df))]
+
+            else:
+                df = pd.DataFrame()
+
+            if df.shape[0] > 0:
+                dfs.append(df)
+        df = pd.concat(dfs).drop_duplicates()
+
+        if inplace:
+            self.data = df
+
+        else:
+            return self.__class__(data=df, metadata=self.metadata)
+
+
+class DataCollection(_Mapping):
+    def __init__(self, datasets: _Any, metadata: Metadata = None, field_mapper: str = None):
+        """
+
+        :param datasets:        If list, ...
+                                If dict, ...
+        :type datasets:         List or dict
+
+        :param metadata:        Metadata
+        :type metadata:         :class: `chronio.structs.Metadata`
+
+        :param field_mapper:    string that specifies the metadata field to be mapped
+        :type field_mapper:     str
+        """
         datasets_ = {}
         if type(datasets) == list:
             for d in datasets:
