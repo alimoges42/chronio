@@ -343,7 +343,7 @@ class _TimeSeries(_Structure):
         binned.drop(columns=[self._time_col], inplace=True)
         binned.reset_index(inplace=True)
         binned[self._time_col] = _np.arange(self.data[self._time_col].values[0], self.data[self._time_col].values[-1] - interval + 1, interval)
-        binned.set_index(self._time_col)
+        binned = binned[binned[self._time_col] <= self.data[self._time_col].values[-1]]
 
         if inplace:
             self.data = binned
@@ -526,7 +526,7 @@ class BehavioralTimeSeries(_TimeSeries):
     The BehavioralTimeSeries class, unlike the NeuroTimeSeries class, does not assume that all columns
     represent the same form of data, nor that each column is expressed in the same units.
     """
-    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None, time_col: str = None):
+    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None, time_col: str = 'Time'):
         super().__init__(data=data, metadata=metadata, fpath=fpath, time_col=time_col)
 
     def compute_velocity(self, x_col: str, y_col: str):
@@ -542,7 +542,7 @@ class NeuroTimeSeries(_TimeSeries):
     activity, a channel from a recording array, etc.
     """
 
-    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None, time_col: str = None):
+    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None, time_col: str = 'Time'):
         super().__init__(data=data, metadata=metadata, fpath=fpath, time_col=time_col)
 
     def correlate(self, axis='cells', method='spearman') -> _Structure:
