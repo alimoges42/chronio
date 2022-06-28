@@ -270,7 +270,7 @@ class Window(_Structure):
 
 class _TimeSeries(_Structure):
 
-    def __init__(self, data: _Any, metadata: Metadata, fpath: str = None, time_col: str = None,
+    def __init__(self, data: _Any, metadata: Metadata, fpath: str = None, time_col: str = 'Time',
                  read_csv_kwargs: dict = None):
         super().__init__(data=data, metadata=metadata)
 
@@ -282,8 +282,8 @@ class _TimeSeries(_Structure):
 
             self.data = _pd.read_csv(self.metadata.system['fpath'], **read_csv_kwargs)
 
-        self._update_fps()
         self._time_col = time_col
+        self._update_fps()
 
     def _update_fps(self):
         self.metadata.computed['fps'] = round(self.data.shape[0] / self.data[self._time_col].values[-1], 2)
