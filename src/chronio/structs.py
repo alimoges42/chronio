@@ -400,18 +400,24 @@ class _TimeSeries(_Structure):
 
             return self.__class__(data=data, metadata=self.metadata, time_col=self._time_col)
 
-    def binarize(self, columns: _List[str] = None, method: str = 'round', inplace: bool = False):
+    def binarize(self,
+                 columns: _List[str] = None,
+                 method: str = 'round',
+                 inplace: bool = False):
         """
         Binarize a dataset. All nonzero entries (including negative numbers!!) will be set to 1.
 
-        :param method:
+        :param method:  Binarization method. Valid methods are:
+                            - `'round'`: Default. Round values to
+                            - `'retain_ones'`:
+                            - `'retain_zeros'`:
 
         :param columns: Columns to binarize.
 
         :param inplace: If True, updates the self.data parameter to contain only the binarized dataset.
 
-        :returns:           If inplace == False, returns the binarized dataset.
-                            If inplace == True, modify inplace and return None
+        :returns:       If inplace == False, returns the binarized dataset.
+                        If inplace == True, modify inplace and return None
         """
 
         if columns is None:
@@ -419,17 +425,29 @@ class _TimeSeries(_Structure):
 
         data = self.data.copy(deep=True)
 
+        def compress_range():
+            # This function clips all values outside the interval of [0, 1]
+
+            data[data[columns] > 1] = 1
+            data[data[columns] < 0] = 0
+
         if method == 'round':
+            data.loc[:, columns] = data.loc[:, columns].fillna(method='bfill')
+
+            compress_range()
+
             data.loc[:, columns] = data.loc[:, columns].round(0)
             data[columns] = data.loc[:, columns].astype(_np.int16)
 
-        elif method == 'hold_ones':
-            data.loc[:, columns][data.loc[:, columns] != 1] = 0
-            data[columns] = data.loc[:, columns].astype(_np.int16)
+        elif method == 'retain_ones':
+            compress_range()
 
-        elif method == 'hold_zeros':
-            data.loc[:, columns][data.loc[:, columns] != 0] = 1
-            data[columns] = data.loc[:, columns].astype(_np.int16)
+            data[columns] = data[columns].where(data == 1, 0).astype(_np.int16)
+
+        elif method == 'retain_zeros':
+            compress_range()
+
+            data[columns] = data[columns].where(data == 0, 1).astype(_np.int16)
 
         else:
             valid_methods = ['round', 'hold_ones', 'hold_zeros']
