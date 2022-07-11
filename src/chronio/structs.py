@@ -7,7 +7,9 @@ Data structures for holding data and metadata associated with a specimen.
 
 from abc import ABC as _ABC
 from typing import Any as _Any, List as _List
-from collections.abc import Mapping as _Mapping, Iterable as _Iterable
+from collections.abc import Mapping as _Mapping
+from copy import deepcopy
+from pprint import pformat
 
 import numpy as _np
 import pandas as _pd
@@ -24,7 +26,8 @@ __all__ = ['Metadata',
            'Window',
            'EventData',
            'BehavioralTimeSeries',
-           'NeuroTimeSeries']
+           'NeuroTimeSeries',
+           'DataCollection']
 
 
 class Metadata:
@@ -85,7 +88,15 @@ class Metadata:
 
         self.update(meta_dict=meta_dict)
 
-    def set_val(self, group: str, value_dict: dict):
+    def __repr__(self):
+        return f'{self.__class__}\n{pformat(self.__dict__)}'
+
+    def __str__(self):
+        return f'Metadata containing:\n{pformat(self.__dict__)}'
+
+    def set_val(self,
+                group: str,
+                value_dict: dict):
         """
         Sets value of a specific metadata attribute (all metadata attributes are dicts).
 
@@ -101,7 +112,8 @@ class Metadata:
         for key, value in value_dict.items():
             d[key] = value
 
-    def update(self, meta_dict: dict):
+    def update(self,
+               meta_dict: dict):
         """
         Update the metadata by passing a dict where each key corresponds to an attribute, and values are the
         new dicts for that attribute.
@@ -113,18 +125,25 @@ class Metadata:
         for group in list(self.__dict__.keys()):
             self.set_val(group, meta_dict)
 
-    def export(self, convention: _Convention, function_kwargs: dict = None, **exporter_kwargs):
+    def export(self,
+               convention: _Convention,
+               function_kwargs: dict = None,
+               **exporter_kwargs):
         # TODO: Think about how metadata should be exported
         pass
 
 
 class _Structure(_ABC):
 
-    def __init__(self, data: _Any, metadata: Metadata):
+    def __init__(self,
+                 data: _Any,
+                 metadata: Metadata):
         self.data = data
-        self.metadata = metadata
+        self.metadata = deepcopy(metadata)
 
-    def export(self, convention: _Convention, **exporter_kwargs):
+    def export(self,
+               convention: _Convention,
+               **exporter_kwargs):
         """
         Parameters supplied by exporter_kwargs will replace those supplied by the convention object. This is to
         allow users on-the-fly editing without having to specify all the new fields of a convention object if they
@@ -164,7 +183,10 @@ class WindowPane(_Structure):
                         These are then passed to `self.metadata.pane_params`
     :type pane_params:  dict
     """
-    def __init__(self, data: _pd.DataFrame, metadata: Metadata, pane_params: dict = None):
+    def __init__(self,
+                 data: _pd.DataFrame,
+                 metadata: Metadata,
+                 pane_params: dict = None):
         super().__init__(data=data, metadata=metadata)
 
         if not pane_params:
@@ -179,7 +201,8 @@ class WindowPane(_Structure):
     def __repr__(self):
         return f'{self.__class__.__name__}(num_rows={self.data.shape[0]}, num_columns={self.data.shape[1]})'
 
-    def sem(self, axis: int = 0):
+    def sem(self,
+            axis: int = 0):
         """
         :param axis:    axis along which to compute. By default this is set to 0, which will return the standard error
                         at each timepoint across the window.
@@ -189,7 +212,8 @@ class WindowPane(_Structure):
 
         return _sem(self.data, axis=axis)
 
-    def event_counts(self, axis: int = 0):
+    def event_counts(self,
+                     axis: int = 0):
         """
         Return counts of events for binarized data. Note that this method requires the variable of interest to
         consist solely of 1s and 0s, where 1s represent event occurrence.
@@ -224,21 +248,21 @@ class Window(_Structure):
                  data: _List[_pd.DataFrame],
                  metadata: Metadata,
                  window_params: dict = None):
-
         super().__init__(data=data, metadata=metadata)
+
         if not window_params:
             window_params = {}
 
-        for key, value in window_params.items():
-            self.metadata.window_params[key] = value
-
-        self.metadata.window_params['n_windows'] = len(self.data)
-
         if all(window.shape == self.data[0].shape for window in self.data):
-            self.metadata.window_params['dims'] = self.data[0].shape
-
+            window_params['dims'] = self.data[0].shape
         else:
             raise ValueError("Each DataFrame must have equal shape.")
+
+        window_params.update({'n_windows': len(self.data)})
+
+        print(f'{window_params = }')
+        self.metadata.set_val('window_params', window_params)
+
 
     def __str__(self):
         return f"{self.__class__.__name__} " \
@@ -250,7 +274,8 @@ class Window(_Structure):
                f"num_windows={self.metadata.window_params['n_windows']}, " \
                f"dims={self.metadata.window_params['dims']})"
 
-    def collapse_on(self, feature: str) -> WindowPane:
+    def collapse_on(self,
+                    feature: str) -> WindowPane:
         """
         :param feature:     variable (i.e. column name) from which you would like to extract data
 
@@ -270,7 +295,11 @@ class Window(_Structure):
 
 class _TimeSeries(_Structure):
 
-    def __init__(self, data: _Any, metadata: Metadata, fpath: str = None, time_col: str = 'Time',
+    def __init__(self,
+                 data: _Any,
+                 metadata: Metadata,
+                 fpath: str = None,
+                 time_col: str = 'Time',
                  read_csv_kwargs: dict = None):
         super().__init__(data=data, metadata=metadata)
 
@@ -288,7 +317,10 @@ class _TimeSeries(_Structure):
     def _update_fps(self):
         self.metadata.computed['fps'] = round(self.data.shape[0] / self.data[self._time_col].values[-1], 2)
 
-    def downsample_to_length(self, method: str = 'nearest', length: int = None, inplace=False):
+    def downsample_to_length(self,
+                             method: str = 'nearest',
+                             length: int = None,
+                             inplace=False):
         """
         Downsample a dataset to a target length
 
@@ -318,7 +350,10 @@ class _TimeSeries(_Structure):
         else:
             return self.__class__(data=df, metadata=self.metadata, time_col=self._time_col)
 
-    def downsample_by_time(self, interval: float, method: str = 'mean', inplace=False):
+    def downsample_by_time(self,
+                           interval: float,
+                           method: str = 'mean',
+                           inplace=False):
         """
         Downsample a dataset by a specified time interval.
 
@@ -353,7 +388,9 @@ class _TimeSeries(_Structure):
         else:
             return self.__class__(data=binned, metadata=self.metadata, time_col=self._time_col)
 
-    def get_events(self, cols: _List[str] = None, get_intervals: bool = True) -> dict:
+    def get_events(self,
+                   cols: _List[str] = None,
+                   get_intervals: bool = True) -> dict:
         events = _analyses.get_events(source_df=self.data, cols=cols, get_intervals=get_intervals)
 
         events_dict = {}
@@ -362,7 +399,11 @@ class _TimeSeries(_Structure):
 
         return events_dict
 
-    def threshold(self, thr: float, binarize: bool = False, columns: _List[str] = None, inplace: bool = False):
+    def threshold(self,
+                  thr: float,
+                  binarize: bool = False,
+                  columns: _List[str] = None,
+                  inplace: bool = False):
         """
         Set a threshold on the specified columns of the dataset and, if desired, binarize the resulting dataset.
         Currently, the same threshold is applied to all specified columns, so if separate thresholds are needed for
@@ -464,8 +505,7 @@ class _TimeSeries(_Structure):
                        indices: list,
                        trial_type: str = None,
                        pre_period: float = 0,
-                       post_period: float = 0,
-                       storage_params: str = None) -> Window:
+                       post_period: float = 0) -> Window:
 
         """
         :param indices:         Indices to align to
@@ -476,10 +516,9 @@ class _TimeSeries(_Structure):
 
         :param post_period:     Time (in seconds) desired to obtain following end of trial
 
-        :param storage_params:  Dict of parameters for saving
-
         :return:                List of aligned trial data
         """
+
         trials = Window(data=_analyses.windows_aligned(source_df=self.data,
                                                        fps=self.metadata.computed['fps'],
                                                        alignment_points=indices,
@@ -487,9 +526,6 @@ class _TimeSeries(_Structure):
                                                        post_frames=int(post_period * self.metadata.computed['fps'])),
                         metadata=self.metadata,
                         window_params={'trial_type': trial_type})
-
-        if storage_params:
-            pass
 
         return trials
 
@@ -509,13 +545,17 @@ class _TimeSeries(_Structure):
         :param inplace: If True, update `self.data` with new values. If False, return a new object.
         :type inplace:  bool
 
-        :return:        Derivative TimeSeries class.
+        :return:        Derivative TimeSeries object.
         """
 
-        if columns:
-            data = self.data[columns]
-        else:
-            data = self.data
+        if columns is None:
+            columns = self.data.columns.tolist()
+            columns.remove(self._time_col)
+
+        elif self._time_col in columns:
+            columns.remove(self._time_col)
+
+        data = self.data[columns]
 
         if window:
             mean = _np.nanmean(data.values[window[0]: window[1]])
@@ -526,7 +566,9 @@ class _TimeSeries(_Structure):
             std = _np.nanstd(data.values)
 
         z = (data.values - mean) / std
+        time = pd.DataFrame(data=self.data[self._time_col])
         z = _pd.DataFrame(z, columns=data.columns, index=data.index)
+        z = _pd.concat([time, z], axis=1)
 
         if inplace:
             self.data = z
@@ -544,7 +586,11 @@ class BehavioralTimeSeries(_TimeSeries):
     The BehavioralTimeSeries class, unlike the NeuroTimeSeries class, does not assume that all columns
     represent the same form of data, nor that each column is expressed in the same units.
     """
-    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None, time_col: str = 'Time'):
+    def __init__(self,
+                 data: _Any = None,
+                 metadata: Metadata = Metadata(),
+                 fpath: str = None,
+                 time_col: str = 'Time'):
         super().__init__(data=data, metadata=metadata, fpath=fpath, time_col=time_col)
 
     def compute_velocity(self, x_col: str, y_col: str):
@@ -560,7 +606,11 @@ class NeuroTimeSeries(_TimeSeries):
     activity, a channel from a recording array, etc.
     """
 
-    def __init__(self, data: _Any = None, metadata: Metadata = Metadata(), fpath: str = None, time_col: str = 'Time'):
+    def __init__(self,
+                 data: _Any = None,
+                 metadata: Metadata = Metadata(),
+                 fpath: str = None,
+                 time_col: str = 'Time'):
         super().__init__(data=data, metadata=metadata, fpath=fpath, time_col=time_col)
 
     def correlate(self, axis='cells', method='spearman') -> _Structure:
@@ -583,7 +633,10 @@ class NeuroTimeSeries(_TimeSeries):
 
 
 class EventData(_Structure):
-    def __init__(self, data: pd.DataFrame = None, metadata: Metadata = Metadata(), fpath: str = None):
+    def __init__(self,
+                 data: pd.DataFrame = None,
+                 metadata: Metadata = Metadata(),
+                 fpath: str = None):
         # Check to make sure input DataFrame contains correct columns
         # if data.columns != ['epoch type', 'epoch onset', 'epoch end', 'epoch duration']:
         #   raise ValueError('Input parameter "data" must be a DataFrame with columns matching: '
@@ -595,7 +648,9 @@ class EventData(_Structure):
 
             self.data = _pd.read_csv(self.metadata.system['fpath'])
 
-    def to_times(self, fps: float = None, inplace: bool = False):
+    def to_times(self,
+                 fps: float = None,
+                 inplace: bool = False):
         if fps is None:
             fps = self.metadata.computed['fps']
         df = self.data
@@ -609,7 +664,10 @@ class EventData(_Structure):
         else:
             return self.__class__(data=df, metadata=self.metadata)
 
-    def events_during(self, windows: _List[list], hanging_events: str = 'none', inplace=False):
+    def events_during(self,
+                      windows: _List[list],
+                      hanging_events: str = 'none',
+                      inplace=False):
         """
         Select events only during specific windows.
 
@@ -673,7 +731,10 @@ class EventData(_Structure):
 
 
 class DataCollection(_Mapping):
-    def __init__(self, datasets: _Any, metadata: Metadata = None, field_mapper: str = None):
+    def __init__(self,
+                 datasets: _Any,
+                 metadata: Metadata = None,
+                 field_mapper: str = None):
         """
 
         :param datasets:        If list, ...
@@ -687,16 +748,16 @@ class DataCollection(_Mapping):
         :type field_mapper:     str
         """
         datasets_ = {}
-        if type(datasets) == list:
+        if isinstance(datasets, list):
             for d in datasets:
-                if type(d) == _Structure:
+                if isinstance(d, _Structure):
                     datasets_[d.metadata[field_mapper]] = d
                 else:
                     raise TypeError(f'Type {type(d)} is not supported for DataCollection object.')
 
-        elif type(datasets) == dict:
-            for name, d in datasets.items:
-                if type(d) == _Structure:
+        elif isinstance(datasets, dict):
+            for name, d in datasets.items():
+                if isinstance(d, _Structure):
                     datasets_[name] = d
                 else:
                     raise TypeError(f'Type {type(d)} is not supported for DataCollection object.')
@@ -716,7 +777,10 @@ class DataCollection(_Mapping):
     def __repr__(self):
         return f"{type(self).__name__}({self.datasets})"
 
-    def export(self, convention: _Convention, subset: list = None, **exporter_kwargs):
+    def export(self,
+               convention: _Convention,
+               subset: list = None,
+               **exporter_kwargs):
         """
         Parameters supplied by exporter_kwargs will replace those supplied by the convention object. This is to
         allow users on-the-fly editing without having to specify all the new fields of a convention object if they

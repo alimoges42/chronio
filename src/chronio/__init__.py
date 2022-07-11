@@ -6,6 +6,5 @@ from .analyses import *
 from .convention import *
 from .experiment import *
 from .observations import *
-from .spatial_params import *
 from .structs import *
 from .visualize import *

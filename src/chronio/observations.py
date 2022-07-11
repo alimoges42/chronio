@@ -77,7 +77,8 @@ class Session:
 def session_from_row(row: pd.Series,
                      mappings: Dict[str, Any],
                      stage_dir: str,
-                     subset: List[str] = None) -> Session:
+                     subset: List[str] = None,
+                     meta_cols: List[str] = None) -> Session:
     """
     :param row:         Typically, this is a row from the SessionReference object.
     :type row:          pd.Series
@@ -123,7 +124,9 @@ def session_from_row(row: pd.Series,
     # Stage column is also considered metadata.
     _nonmeta_cols = [*behavior_cols, *neuro_cols]
 
-    meta_cols = [idx for idx in row.index if idx not in _nonmeta_cols]
+    if meta_cols is None:
+        meta_cols = [idx for idx in row.index if idx not in _nonmeta_cols]
+
     meta = row[meta_cols]
     meta.to_dict()
 
