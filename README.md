@@ -16,7 +16,7 @@ New releases and updates will be available here.
  - [x] Support for photometry and calcium imaging data
  - [x] Build templates that model features of your experimental paradigm for easy analyses
 
-**Coming Soon (Spring 2022)**
+**Coming Soon (Summer/Fall 2022)**
  - [ ] Advanced data visualization for exploratory data analysis
 
 ## Installing ChronIO
@@ -77,13 +77,13 @@ print(chronio.__file__)
 ```
 This will output something similar to the following:
 ```angular2html
-'c:\\users\\username\\anaconda3\\envs\\chronio\\lib\\python3.10\\site-packages\\chronio\\src\\chronio\\__init__.py'
+'c:\\users\\username\\anaconda3\\envs\\chronio\\lib\\site-packages\\chronio\\__init__.py'
 ```
 With this code, open up your desktop file browser and navigate to the `...\\site-packages\\chronio\\` folder above,
 making sure not to go deeper than that.
 In another window, open up the updated ChronIO folder that you either unzipped or pulled. Simply copy and paste the 
-`src` folder (and subfolders) to overwrite the `src` folder contained in `...\\site-packages\\chronio`. This will copy
-the lasest version of ChronIO to your Anaconda directory.
+`src\\chronio` folder (and subfolders) to overwrite the `site-packages\\chronio` folder. 
+This will copy the lasest version of ChronIO to your Anaconda directory.
 
 ### Developer Information
 Aaron Limoges (Github: [@alimoges42](https://github.com/alimoges42))
