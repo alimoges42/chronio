@@ -502,13 +502,13 @@ class _TimeSeries(_Structure):
             return self.__class__(data=data, metadata=self.metadata, time_col=self._time_col)
 
     def split_by_trial(self,
-                       indices: list,
+                       timepoints: list,
                        trial_type: str = None,
                        pre_period: float = 0,
                        post_period: float = 0) -> Window:
 
         """
-        :param indices:         Indices to align to
+        :param timepoints:      Timepoints to align to
 
         :param trial_type:      User-defined name of trial type
 
@@ -518,6 +518,8 @@ class _TimeSeries(_Structure):
 
         :return:                List of aligned trial data
         """
+
+        indices = [round(i * self.metadata.computed['fps']) for i in timepoints]
 
         trials = Window(data=_analyses.windows_aligned(source_df=self.data,
                                                        fps=self.metadata.computed['fps'],
