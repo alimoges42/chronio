@@ -8,12 +8,13 @@ from numpy import ndarray
 
 class _DataReader(ABC):
     def __init__(self, fpath):
+        self.fpath = fpath
         pass
 
 
 class _IDPSReader(_DataReader):
-    def __init__(self, fpath):
-        super().__init__(self, fpath=fpath)
+    def __init__(self):
+        super().__init__(self)
         pass
 
 

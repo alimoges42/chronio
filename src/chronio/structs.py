@@ -311,11 +311,14 @@ class _TimeSeries(_Structure):
 
             self.data = _pd.read_csv(self.metadata.system['fpath'], **read_csv_kwargs)
 
+        self.data.set_index(time_col, inplace=True)
+
         self._time_col = time_col
         self._update_fps()
 
     def _update_fps(self):
-        self.metadata.computed['fps'] = round(self.data.shape[0] / self.data[self._time_col].values[-1], 2)
+        time_range = self.data.index.values[-1] - self.data.index.values[0]
+        self.metadata.computed['fps'] = round(self.data.shape[0] / time_range, 2)
 
     def downsample_to_length(self,
                              method: str = 'nearest',
@@ -367,18 +370,16 @@ class _TimeSeries(_Structure):
         # Currently supported methods
         methods = ['mean']
 
-        bins = _np.arange(0, self.data[self._time_col].values[-1] + 1, interval)
+        bins = _np.arange(self.data.index.values[0] - interval, self.data.index.values[-1] + interval, interval)
 
         if method == 'mean':
-            binned = self.data.groupby(_pd.cut(self.data[self._time_col], bins)).mean()
+            binned = self.data.groupby(_pd.cut(self.data.index, bins)).mean()
 
         else:
             raise ValueError(f'Method {method} not recognized. Currently accepted methods are {methods}')
-
-        binned.drop(columns=[self._time_col], inplace=True)
-        binned.reset_index(inplace=True)
-        binned[self._time_col] = _np.arange(self.data[self._time_col].values[0], self.data[self._time_col].values[-1] - interval + 1, interval)
-        binned = binned[binned[self._time_col] <= self.data[self._time_col].values[-1]]
+        binned.index = pd.Series(binned.index).apply(lambda x: x.left).astype(float)
+        binned.index = binned.index + interval
+        print(f'{binned = }')
 
         if inplace:
             self.data = binned
@@ -386,7 +387,7 @@ class _TimeSeries(_Structure):
             return None
 
         else:
-            return self.__class__(data=binned, metadata=self.metadata, time_col=self._time_col)
+            return self.__class__(data=binned, metadata=self.metadata)
 
     def get_events(self,
                    cols: _List[str] = None,
@@ -439,7 +440,7 @@ class _TimeSeries(_Structure):
             if binarize:
                 data[columns][data[columns] >= thr] = 1
 
-            return self.__class__(data=data, metadata=self.metadata, time_col=self._time_col)
+            return self.__class__(data=data, metadata=self.metadata)
 
     def binarize(self,
                  columns: _List[str] = None,
@@ -499,13 +500,14 @@ class _TimeSeries(_Structure):
             return None
 
         else:
-            return self.__class__(data=data, metadata=self.metadata, time_col=self._time_col)
+            return self.__class__(data=data, metadata=self.metadata)
 
     def split_by_trial(self,
                        timepoints: list,
                        trial_type: str = None,
                        pre_period: float = 0,
-                       post_period: float = 0) -> Window:
+                       post_period: float = 0,
+                       center_index: bool = True) -> Window:
 
         """
         :param timepoints:      Timepoints to align to
@@ -516,30 +518,33 @@ class _TimeSeries(_Structure):
 
         :param post_period:     Time (in seconds) desired to obtain following end of trial
 
+        :param center_index:    If True, reset index of each window to be centered around the
+                                timepoint that window was aligned to.
+
         :return:                List of aligned trial data
         """
-
         indices = [round(i * self.metadata.computed['fps']) for i in timepoints]
 
         trials = Window(data=_analyses.windows_aligned(source_df=self.data,
                                                        fps=self.metadata.computed['fps'],
                                                        alignment_points=indices,
                                                        pre_frames=int(pre_period * self.metadata.computed['fps']),
-                                                       post_frames=int(post_period * self.metadata.computed['fps'])),
+                                                       post_frames=int(post_period * self.metadata.computed['fps']),
+                                                       center_index=center_index),
                         metadata=self.metadata,
                         window_params={'trial_type': trial_type})
 
         return trials
 
-    def normalize(self, window: _List[int] = None, columns: _List[str] = None, inplace=False):
+    def normalize(self, baseline: _List[int] = None, columns: _List[str] = None, inplace=False):
         """
         Normalize a dataset to some window. Normalization is achieved via a z-scoring-like method,
         wherein a window may be established as a baseline mean. If no window is specified, the entire time
         series is used as the baseline mean.
 
-        :param window:  A list of two indices, where `window[0]` designates beginning of window,
+        :param baseline:  A list of two indices, where `window[0]` designates beginning of window,
                         and `window[1]` designates the end of the window.
-        :type window:   List[int]
+        :type baseline:   List[int]
 
         :param columns: A list which, if supplied, applies normalization only to the specified columns.
         :type columns:  List[str]
@@ -552,25 +557,20 @@ class _TimeSeries(_Structure):
 
         if columns is None:
             columns = self.data.columns.tolist()
-            columns.remove(self._time_col)
-
-        elif self._time_col in columns:
-            columns.remove(self._time_col)
 
         data = self.data[columns]
 
-        if window:
-            mean = _np.nanmean(data.values[window[0]: window[1]])
-            std = _np.nanstd(data.values[window[0]: window[1]])
+        if baseline:
+            mean = _np.nanmean(data.values[baseline[0]: baseline[1]], axis=0)
+            std = _np.nanstd(data.values[baseline[0]: baseline[1]], axis=0)
 
         else:
-            mean = _np.nanmean(data.values)
-            std = _np.nanstd(data.values)
+            mean = _np.nanmean(data.values, axis=0)
+            std = _np.nanstd(data.values, axis=0)
 
         z = (data.values - mean) / std
-        time = pd.DataFrame(data=self.data[self._time_col])
         z = _pd.DataFrame(z, columns=data.columns, index=data.index)
-        z = _pd.concat([time, z], axis=1)
+        z = z.reindex_like(self.data)
 
         if inplace:
             self.data = z

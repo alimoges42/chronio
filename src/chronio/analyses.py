@@ -249,7 +249,6 @@ def windows_aligned(source_df:          pd.DataFrame,
 
     :return:                    List of dataframes with each df representing a single window
     """
-
     startpoints, endpoints = list(), list()
     for point in alignment_points:
         startpoints.append(point - pre_frames)
@@ -257,12 +256,13 @@ def windows_aligned(source_df:          pd.DataFrame,
 
     windows = []
     for start, end in zip(startpoints, endpoints):
+        #print(f'{source_df.index.values[start:end] = }')
         if end < start:
             raise ValueError(f'Cannot slice. Endpoint {end} is smaller than startpoint {start}.')
-        windows.append(source_df[start:end:1])
+        windows.append(source_df.loc[source_df.index.values[start:end:1]])
 
     if center_index:
-        centered_index = frames_to_times(fps=fps, frame_numbers=windows[0].index - alignment_points[0])
+        centered_index = np.round(np.linspace(-pre_frames/fps, post_frames/fps, num=len(windows[0])), 2)
 
         for window in windows:
             window.set_index([centered_index], inplace=True)
