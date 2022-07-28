@@ -379,7 +379,6 @@ class _TimeSeries(_Structure):
             raise ValueError(f'Method {method} not recognized. Currently accepted methods are {methods}')
         binned.index = pd.Series(binned.index).apply(lambda x: x.left).astype(float)
         binned.index = binned.index + interval
-        print(f'{binned = }')
 
         if inplace:
             self.data = binned
