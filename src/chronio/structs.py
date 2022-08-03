@@ -299,7 +299,7 @@ class _TimeSeries(_Structure):
                  data: _Any,
                  metadata: Metadata,
                  fpath: str = None,
-                 time_col: str = 'Time',
+                 time_col: str = None,
                  read_csv_kwargs: dict = None):
         super().__init__(data=data, metadata=metadata)
 
@@ -311,7 +311,8 @@ class _TimeSeries(_Structure):
 
             self.data = _pd.read_csv(self.metadata.system['fpath'], **read_csv_kwargs)
 
-        self.data.set_index(time_col, inplace=True)
+        if time_col:
+            self.data.set_index(time_col, inplace=True)
 
         self._time_col = time_col
         self._update_fps()
@@ -389,9 +390,13 @@ class _TimeSeries(_Structure):
             return self.__class__(data=binned, metadata=self.metadata)
 
     def get_events(self,
-                   cols: _List[str] = None,
+                   columns: _List[str] = None,
                    get_intervals: bool = True) -> dict:
-        events = _analyses.get_events(source_df=self.data, cols=cols, get_intervals=get_intervals)
+
+        if columns is None:
+            columns = self.data.columns
+
+        events = _analyses.get_events(source_df=self.data, cols=columns, get_intervals=get_intervals)
 
         events_dict = {}
         for col, event in events.items():
@@ -423,8 +428,11 @@ class _TimeSeries(_Structure):
                             If inplace == True, modify inplace and return None
         """
 
+        if columns is None:
+            columns = self.data.columns
+
         if inplace:
-            self.data[columns][self.data[columns] < thr] = 0
+            self.data[columns] = self.data[columns].where(self.data[columns] > thr, other=0)
 
             if binarize:
                 self.binarize(columns=columns, inplace=inplace)
@@ -433,7 +441,7 @@ class _TimeSeries(_Structure):
 
         else:
             data = self.data.copy(deep=True)
-            data[columns][data[columns] < thr] = 0
+            data[columns] = data[columns].where(data[columns] > thr, other=0)
 
             # Can't use self.binarize() here because we made a deep copy
             if binarize:
@@ -466,27 +474,21 @@ class _TimeSeries(_Structure):
 
         data = self.data.copy(deep=True)
 
-        def compress_range():
-            # This function clips all values outside the interval of [0, 1]
-
-            data[data[columns] > 1] = 1
-            data[data[columns] < 0] = 0
-
         if method == 'round':
             data.loc[:, columns] = data.loc[:, columns].fillna(method='bfill')
 
-            compress_range()
+            data.clip(0, 1, inplace=True)
 
             data.loc[:, columns] = data.loc[:, columns].round(0)
             data[columns] = data.loc[:, columns].astype(_np.int16)
 
         elif method == 'retain_ones':
-            compress_range()
+            data.clip(0, 1, inplace=True)
 
             data[columns] = data[columns].where(data == 1, 0).astype(_np.int16)
 
         elif method == 'retain_zeros':
-            compress_range()
+            data.clip(0, 1, inplace=True)
 
             data[columns] = data[columns].where(data == 0, 1).astype(_np.int16)
 
@@ -591,7 +593,7 @@ class BehavioralTimeSeries(_TimeSeries):
                  data: _Any = None,
                  metadata: Metadata = Metadata(),
                  fpath: str = None,
-                 time_col: str = 'Time'):
+                 time_col: str = None):
         super().__init__(data=data, metadata=metadata, fpath=fpath, time_col=time_col)
 
     def compute_velocity(self, x_col: str, y_col: str):
@@ -611,7 +613,7 @@ class NeuroTimeSeries(_TimeSeries):
                  data: _Any = None,
                  metadata: Metadata = Metadata(),
                  fpath: str = None,
-                 time_col: str = 'Time'):
+                 time_col: str = None):
         super().__init__(data=data, metadata=metadata, fpath=fpath, time_col=time_col)
 
     def correlate(self, axis='cells', method='spearman') -> _Structure:
@@ -685,7 +687,6 @@ class EventData(_Structure):
         dfs = []
 
         for tup in windows:
-            print(tup)
 
             if hanging_events in 'start':
                 df = self.data[self.data['epoch end'].between(tup[0], tup[1])]
@@ -722,7 +723,12 @@ class EventData(_Structure):
 
             if df.shape[0] > 0:
                 dfs.append(df)
-        df = pd.concat(dfs).drop_duplicates()
+
+        if len(dfs) > 0:
+            df = pd.concat(dfs).drop_duplicates()
+
+        else:
+            df = pd.DataFrame()
 
         if inplace:
             self.data = df
