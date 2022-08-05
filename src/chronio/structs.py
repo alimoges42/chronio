@@ -10,6 +10,7 @@ from typing import Any as _Any, List as _List
 from collections.abc import Mapping as _Mapping
 from copy import deepcopy
 from pprint import pformat
+import operator
 
 import numpy as _np
 import pandas as _pd
@@ -406,6 +407,7 @@ class _TimeSeries(_Structure):
 
     def threshold(self,
                   thr: float,
+                  direction: str = '>',
                   binarize: bool = False,
                   columns: _List[str] = None,
                   inplace: bool = False):
@@ -428,11 +430,21 @@ class _TimeSeries(_Structure):
                             If inplace == True, modify inplace and return None
         """
 
+        ops = {'>': operator.gt,
+               '>=': operator.ge,
+               '==': operator.eq,
+               '!=': operator.ne,
+               '<': operator.lt,
+               '<=': operator.le}
+
+        if direction not in ops.keys():
+            raise ValueError(f'Invalid operation {direction}. Valid operations are {ops.keys()}')
+
         if columns is None:
             columns = self.data.columns
 
         if inplace:
-            self.data[columns] = self.data[columns].where(self.data[columns] > thr, other=0)
+            self.data[columns] = self.data[columns].where(ops[direction](self.data[columns], thr), other=0)
 
             if binarize:
                 self.binarize(columns=columns, inplace=inplace)
@@ -441,7 +453,7 @@ class _TimeSeries(_Structure):
 
         else:
             data = self.data.copy(deep=True)
-            data[columns] = data[columns].where(data[columns] > thr, other=0)
+            data[columns] = data[columns].where(ops[direction](self.data[columns], thr), other=0)
 
             # Can't use self.binarize() here because we made a deep copy
             if binarize:
