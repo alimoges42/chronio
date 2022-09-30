@@ -6,26 +6,26 @@ import pandas as _pd
 from numpy import ndarray
 
 
-class _DataReader(ABC):
-    def __init__(self, fpath):
-        self.fpath = fpath
+class Reader(ABC):
+    def __init__(self):
         pass
 
-
-class _IDPSReader(_DataReader):
-    def __init__(self):
-        super().__init__(self)
+    @abstractmethod
+    def load(self):
         pass
 
 
 def read_IDPS(fpath: str,
-              time_digits: int = 2,
+              round_time: int = None,
               include: _List[str] = 'accepted'):
     df = _pd.read_csv(fpath, skiprows=[1], header=0)
     abs_time = df[' '].iloc[0]
 
     df[' '] = df[' '].iloc[:] - abs_time
-    df['Time'] = df[' '].round(time_digits)
+    if round_time:
+        df['Time'] = df[' '].round(round_time)
+    else:
+        df['Time'] = df[' ']
     df = df[df.columns]
     df.drop(columns=[' '], inplace=True)
 

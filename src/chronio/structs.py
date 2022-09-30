@@ -14,7 +14,6 @@ import operator
 
 import numpy as _np
 import pandas as _pd
-import pandas as pd
 from scipy.interpolate import interp1d as _interp1d
 from scipy.stats import sem as _sem
 
@@ -322,6 +321,10 @@ class _TimeSeries(_Structure):
         time_range = self.data.index.values[-1] - self.data.index.values[0]
         self.metadata.computed['fps'] = round(self.data.shape[0] / time_range, 2)
 
+    def set_time_col(self, time_col):
+        self._time_col = time_col
+        self.data.set_index(time_col, inplace=True)
+
     def downsample_to_length(self,
                              method: str = 'nearest',
                              length: int = None,
@@ -358,6 +361,7 @@ class _TimeSeries(_Structure):
     def downsample_by_time(self,
                            interval: float,
                            method: str = 'mean',
+                           round_time: int = None,
                            inplace=False):
         """
         Downsample a dataset by a specified time interval.
@@ -379,8 +383,11 @@ class _TimeSeries(_Structure):
 
         else:
             raise ValueError(f'Method {method} not recognized. Currently accepted methods are {methods}')
-        binned.index = pd.Series(binned.index).apply(lambda x: x.left).astype(float)
+        binned.index = _pd.Series(binned.index).apply(lambda x: x.left).astype(float)
         binned.index = binned.index + interval
+
+        if round_time:
+            binned.index = _np.round(binned.index, round_time)
 
         if inplace:
             self.data = binned
@@ -649,7 +656,7 @@ class NeuroTimeSeries(_TimeSeries):
 
 class EventData(_Structure):
     def __init__(self,
-                 data: pd.DataFrame = None,
+                 data: _pd.DataFrame = None,
                  metadata: Metadata = Metadata(),
                  fpath: str = None):
         # Check to make sure input DataFrame contains correct columns
@@ -731,16 +738,16 @@ class EventData(_Structure):
                 df.index = [i + idx_start for i in range(0, len(df))]
 
             else:
-                df = pd.DataFrame()
+                df = _pd.DataFrame()
 
             if df.shape[0] > 0:
                 dfs.append(df)
 
         if len(dfs) > 0:
-            df = pd.concat(dfs).drop_duplicates()
+            df = _pd.concat(dfs).drop_duplicates()
 
         else:
-            df = pd.DataFrame()
+            df = _pd.DataFrame()
 
         if inplace:
             self.data = df

@@ -262,7 +262,7 @@ def windows_aligned(source_df:          pd.DataFrame,
         windows.append(source_df.loc[source_df.index.values[start:end:1]])
 
     if center_index:
-        centered_index = np.round(np.linspace(-pre_frames/fps, post_frames/fps, num=len(windows[0])), 2)
+        centered_index = np.round(np.linspace(-(pre_frames - 1)/fps, post_frames/fps, num=len(windows[0])), 2)
 
         for window in windows:
             window.set_index([centered_index], inplace=True)
