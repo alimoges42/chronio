@@ -6,12 +6,12 @@ Module for managing and mapping files associated with multiple specimens.
 """
 
 from __future__ import annotations
-from typing import List, Dict, Any
+from typing import List as _List, Dict as _Dict
 import pathlib
 import pandas as pd
 
-from chronio.structs import _TimeSeries, BehavioralTimeSeries, NeuroTimeSeries, Metadata
-from chronio.experiment import Stage, stage_from_template
+import chronio.io.readers
+from chronio.structs import _TimeSeries, Metadata
 
 __all__ = ['SessionReference', 'Session', 'session_from_row']
 
@@ -68,17 +68,16 @@ class SessionReference:
 
 
 class Session:
-    def __init__(self, attrs: Dict[str, _TimeSeries], meta: Metadata = Metadata()):
+    def __init__(self, attrs: _Dict[str, _TimeSeries], meta: Metadata = Metadata()):
         for attr_name, dataset in attrs.items():
             setattr(self, attr_name, dataset)
         self.meta = meta
 
 
 def session_from_row(row: pd.Series,
-                     mappings: Dict[str, Any],
-                     stage_dir: str,
-                     subset: List[str] = None,
-                     meta_cols: List[str] = None) -> Session:
+                      mappings: _Dict[str, chronio.io.readers._Reader],
+                      subset: _List[str] = None,
+                      meta_cols: _List[str] = None) -> Session:
     """
     :param row:         Typically, this is a row from the SessionReference object.
     :type row:          pd.Series
@@ -88,41 +87,21 @@ def session_from_row(row: pd.Series,
                         Indices not mapped are assumed to hold metadata.
     :type mappings:     dict
 
-    :param stage_dir:   Directory of the location of a stage
-    :type stage_dir:    str
-
     :param subset:      If desired, load a subset of columns
     :type subset:       List[str]
 
     :return:
     """
+
     if not subset:
         subset = []
 
-    behavior_cols = []
-    neuro_cols = []
     stage_name = None
     stage = None
 
-    for key, value in mappings.items():
-        if value == BehavioralTimeSeries:
-            behavior_cols.append(key)
-            print(f'BehavioralTimeSeries mapped to column "{key}".')
-
-        elif value == NeuroTimeSeries:
-            neuro_cols.append(key)
-            print(f'NeuroTimeSeries mapped to column "{key}".')
-
-        elif value == Stage:
-            stage_name = row[key]
-            fpath = pathlib.Path(stage_dir)
-            stage_fpath = pathlib.Path.joinpath(fpath, f'{stage_name}.json')
-            stage = stage_from_template(str(stage_fpath))
-            print(f'Stage mapped to column "{key}".')
-
     # Assume all remaining columns constitute some form of metadata.
     # Stage column is also considered metadata.
-    _nonmeta_cols = [*behavior_cols, *neuro_cols]
+    _nonmeta_cols = [i for i in mappings.keys() if i != 'stage']
 
     if meta_cols is None:
         meta_cols = [idx for idx in row.index if idx not in _nonmeta_cols]
@@ -142,7 +121,6 @@ def session_from_row(row: pd.Series,
     for col, attr_name in zip(cols_to_load, attr_names):
         fpath = str(pathlib.Path(row[col]))
 
-        # TODO: map other cols to metadata
         if stage_name:
             metadata = Metadata(fpath=fpath, stage_name=stage_name)
             metadata.set_val('session', meta)
@@ -151,7 +129,14 @@ def session_from_row(row: pd.Series,
             metadata.set_val('session', meta)
 
         print(f'Data from column "{col}" successfully loaded as self.{attr_name}.')
-        attrs[attr_name] = mappings[col](fpath=fpath, metadata=metadata)
+
+        if isinstance(mappings[col], chronio.Stage):
+            continue
+        else:
+            obj = mappings[col]
+            attrs[attr_name] = obj.load(fpath=fpath)
+
+    print(attrs)
     session = Session(attrs=attrs, meta=meta)
 
     return session
