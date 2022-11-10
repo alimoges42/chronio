@@ -256,9 +256,11 @@ def windows_aligned(source_df:          pd.DataFrame,
 
     windows = []
     for start, end in zip(startpoints, endpoints):
-        #print(f'{source_df.index.values[start:end] = }')
         if end < start:
             raise ValueError(f'Cannot slice. Endpoint {end} is smaller than startpoint {start}.')
+
+        if end > len(source_df):
+            raise ValueError(f'End frame number {end} exceeds {len(source_df) = }.')
         windows.append(source_df.loc[source_df.index.values[start:end:1]])
 
     if center_index:

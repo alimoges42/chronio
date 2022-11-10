@@ -106,8 +106,7 @@ def session_from_row(row: pd.Series,
     if meta_cols is None:
         meta_cols = [idx for idx in row.index if idx not in _nonmeta_cols]
 
-    meta = row[meta_cols]
-    meta.to_dict()
+    meta = row[meta_cols].to_dict()
 
     if stage:
         setattr(meta, 'stage', stage)
@@ -118,6 +117,8 @@ def session_from_row(row: pd.Series,
     attr_names = [col.replace(' ', '_') for col in cols_to_load]
     attrs = {}
 
+    metadata = None
+
     for col, attr_name in zip(cols_to_load, attr_names):
         fpath = str(pathlib.Path(row[col]))
 
@@ -127,16 +128,17 @@ def session_from_row(row: pd.Series,
         else:
             metadata = Metadata(fpath=fpath)
             metadata.set_val('session', meta)
-
         print(f'Data from column "{col}" successfully loaded as self.{attr_name}.')
 
-        if isinstance(mappings[col], chronio.Stage):
-            continue
-        else:
-            obj = mappings[col]
-            attrs[attr_name] = obj.load(fpath=fpath)
+        #if isinstance(mappings[col], chronio.Stage):
+        #    continue
+        #else:
+        #    obj = mappings[col]
+        #    attrs[attr_name] = obj.load(fpath=fpath)
 
-    print(attrs)
-    session = Session(attrs=attrs, meta=meta)
+        obj = mappings[col]
+        attrs[attr_name] = obj.load(fpath=fpath, metadata=metadata)
+
+    session = Session(attrs=attrs, meta=metadata)
 
     return session

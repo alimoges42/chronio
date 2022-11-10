@@ -155,10 +155,10 @@ class _Structure(_ABC):
         export_kwargs.update(exporter_kwargs)
         export_kwargs['obj_type'] = self.__class__.__name__
 
-        if type(self.data) == _np.ndarray:
+        if isinstance(self.data, _np.ndarray):
             exporter = _ArrayExporter(obj=self.data, **export_kwargs)
 
-        elif type(self.data) == _pd.DataFrame:
+        elif isinstance(self.data, _pd.DataFrame):
             # TODO: Support both CSV and XLSX io options - could be achieved by editing _DataFrameExporter?
             exporter = _DataFrameExporter(obj=self.data,
                                           metadata=self.metadata,
@@ -296,8 +296,8 @@ class Window(_Structure):
 class _TimeSeries(_Structure):
 
     def __init__(self,
-                 data: _Any,
-                 metadata: Metadata,
+                 data: _Any = None,
+                 metadata: Metadata = Metadata(),
                  fpath: str = None,
                  time_col: str = None,
                  read_csv_kwargs: dict = None):

@@ -40,6 +40,8 @@ def trial_heatmap(data: _Any,
         set_context(context)
 
     fig, ax = plt.subplots(figsize=figsize)
+    extent = None
+    xlabel = None
 
     if isinstance(data, pd.DataFrame):
         to_plot = data.values
@@ -83,7 +85,7 @@ def trial_heatmap(data: _Any,
 
 def trial_lineplot(data: pd.DataFrame,
                    cmap: _Any = 'bone',
-                   vline_loc: float = None,
+                   vline_locs: _List[float] = None,
                    figsize: tuple = (6, 4)):
 
     if type(cmap) == str:
@@ -105,7 +107,10 @@ def trial_lineplot(data: pd.DataFrame,
 
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=0, vmax=len(data)))
     cbar = plt.colorbar(sm)
-    ax.axvline(vline_loc, c='k', ls='--')
+
+    if vline_locs:
+        for vline_loc in vline_locs:
+            ax.axvline(vline_loc, c='k', ls='--')
 
     return fig, ax, cbar
 
