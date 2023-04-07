@@ -27,7 +27,7 @@ __all__ = ['segment_df',
            'reconstruct_time']
 
 
-def _binary_array(startpoints: list, endpoints: list, duration: float, width: int, frate: float = 1):
+def _binary_array(startpoints: np.ndarray, endpoints: np.ndarray, duration: float, width: int, frate: float = 1):
     """
     Create an array of 1s and 0s, where 1s correspond to events and 0s correspond to lack of events.
 
@@ -49,8 +49,9 @@ def _binary_array(startpoints: list, endpoints: list, duration: float, width: in
     :return:            np.array where number of rows is determined by frate * duration, and number of columns by width.
     """
 
-    startpoints = np.array(startpoints * frate)
-    endpoints = np.array(endpoints * frate)
+    fps = int(1 / frate)
+    startpoints = startpoints * fps
+    endpoints = endpoints * fps
 
     on_start = 0 if startpoints[0] != 0 else 1
     on_end = 0 if endpoints[-1] != duration * frate else 1
@@ -68,7 +69,7 @@ def _binary_array(startpoints: list, endpoints: list, duration: float, width: in
         intervals.append(np.zeros((start - end, width), int))
 
     if not on_end:
-        intervals.append(np.zeros((duration - endpoints[-1], width), int))
+        intervals.append(np.zeros((duration * fps - endpoints[-1], width), int))
 
     result = [None] * (len(events) + len(intervals))
 
@@ -80,7 +81,7 @@ def _binary_array(startpoints: list, endpoints: list, duration: float, width: in
         result[::2] = intervals
         result[1::2] = events
 
-    result = np.concatenate(result)
+    result = np.concatenate(result).reshape(width, duration * fps)[0]
     return result
 
 

@@ -110,6 +110,7 @@ def stage_from_template(template_path: str) -> Stage:
 
     :return:                Returns a Stage object from the JSON file.
     """
+    
     json_data = json.load(open(template_path))
     stage = Stage(stage_name=json_data['stage_name'], stage_duration=json_data['stage_duration'],
                   trial_onsets=json_data['trial_onsets'], trial_durations=json_data['trial_durations'])

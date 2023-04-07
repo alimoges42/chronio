@@ -53,11 +53,13 @@ class AnymazeReader(_Reader):
 
     def load(self,
              fpath: str,
-             metadata: _Metadata = None):
+             metadata: _Metadata = _Metadata(),
+             time_col: str = 'Time',
+             encoding: str = None):
 
-        df = _pd.read_csv(fpath, header=0)
+        df = _pd.read_csv(fpath, header=0, encoding=encoding)
 
-        return _BehavioralTimeSeries(data=df, time_col='Time', metadata=metadata)
+        return _BehavioralTimeSeries(data=df, time_col=time_col, metadata=metadata)
 
 
 class IDPSReader(_Reader):

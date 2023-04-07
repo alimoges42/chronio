@@ -562,9 +562,9 @@ class _TimeSeries(_Structure):
         wherein a window may be established as a baseline mean. If no window is specified, the entire time
         series is used as the baseline mean.
 
-        :param baseline:  A list of two indices, where `window[0]` designates beginning of window,
+        :param baseline: A list of two indices, where `window[0]` designates beginning of window,
                         and `window[1]` designates the end of the window.
-        :type baseline:   List[int]
+        :type baseline:  List[int]
 
         :param columns: A list which, if supplied, applies normalization only to the specified columns.
         :type columns:  List[str]
