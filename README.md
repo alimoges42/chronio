@@ -16,7 +16,7 @@ New releases and updates will be available here.
  - [x] Support for photometry and calcium imaging data
  - [x] Build templates that model features of your experimental paradigm for easy analyses
 
-**Coming Soon (Summer/Fall 2022)**
+**Coming Soon**
  - [ ] Advanced data visualization for exploratory data analysis
 
 ## Installing ChronIO
