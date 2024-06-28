@@ -13,7 +13,7 @@ __all__ = ['Stage', 'stage_from_template']
 
 class Stage:
     """
-    Create a stage_name of an experimental paradigm.
+    Create a stage of an experimental paradigm.
 
     Stages can be used to specify onsets of environmental cues and stimuli administered as part of an experiment.
 
@@ -115,7 +115,3 @@ def stage_from_template(template_path: str) -> Stage:
     stage = Stage(stage_name=json_data['stage_name'], stage_duration=json_data['stage_duration'],
                   trial_onsets=json_data['trial_onsets'], trial_durations=json_data['trial_durations'])
     return stage
-
-
-def stage_from_stamps():
-    pass

@@ -12,8 +12,8 @@ from collections import defaultdict
 from itertools import groupby
 from typing import List, Dict, Any
 
-import pandas as pd
-import numpy as np
+import pandas as _pd
+import numpy as _np
 from scipy.ndimage import label
 
 
@@ -27,7 +27,7 @@ __all__ = ['segment_df',
            'reconstruct_time']
 
 
-def _binary_array(startpoints: np.ndarray, endpoints: np.ndarray, duration: float, width: int, frate: float = 1):
+def _binary_array(startpoints: _np.ndarray, endpoints: _np.ndarray, duration: float, width: int, frate: float = 1):
     """
     Create an array of 1s and 0s, where 1s correspond to events and 0s correspond to lack of events.
 
@@ -46,7 +46,7 @@ def _binary_array(startpoints: np.ndarray, endpoints: np.ndarray, duration: floa
     :param frate:       frame rate (frames per second)
     :type frate:        float
 
-    :return:            np.array where number of rows is determined by frate * duration, and number of columns by width.
+    :return:            _np.array where number of rows is determined by frate * duration, and number of columns by width.
     """
 
     fps = int(1 / frate)
@@ -60,16 +60,16 @@ def _binary_array(startpoints: np.ndarray, endpoints: np.ndarray, duration: floa
     intervals = []
 
     if not on_start:
-        intervals.append(np.zeros(((startpoints[0]), width), int))
+        intervals.append(_np.zeros(((startpoints[0]), width), int))
 
     for start, end in zip(startpoints, endpoints):
-        events.append(np.ones((end - start, width), int))
+        events.append(_np.ones((end - start, width), int))
 
     for start, end in zip(startpoints[1:], endpoints[:-1]):
-        intervals.append(np.zeros((start - end, width), int))
+        intervals.append(_np.zeros((start - end, width), int))
 
     if not on_end:
-        intervals.append(np.zeros((duration * fps - endpoints[-1], width), int))
+        intervals.append(_np.zeros((duration * fps - endpoints[-1], width), int))
 
     result = [None] * (len(events) + len(intervals))
 
@@ -81,16 +81,16 @@ def _binary_array(startpoints: np.ndarray, endpoints: np.ndarray, duration: floa
         result[::2] = intervals
         result[1::2] = events
 
-    result = np.concatenate(result).reshape(width, duration * fps)[0]
+    result = _np.concatenate(result).reshape(width, duration * fps)[0]
     return result
 
 
-def segment_df(source_df: pd.DataFrame, startpoints: list, endpoints: list):
+def segment_df(source_df: _pd.DataFrame, startpoints: list, endpoints: list):
     """
     Given a list of startpoints and endpoints, segment a DataFrame into a list of DataFrames.
 
     :param source_df:   DataFrame to segment
-    :type source_df:    pd.DataFrame
+    :type source_df:    _pd.DataFrame
 
     :param startpoints: List of indices that determine onset of epochs
     :type startpoints:  list
@@ -135,7 +135,7 @@ def times_to_frames(fps: float, timestamps: list) -> list:
     return list(map(lambda x: int(x * fps), timestamps))
 
 
-def spatial_bins(source_df: pd.DataFrame,
+def spatial_bins(source_df: _pd.DataFrame,
                  x_col: str,
                  y_col: str,
                  bin_size: float = 1,
@@ -156,10 +156,10 @@ def spatial_bins(source_df: pd.DataFrame,
 
     :param handle_nans: valid options are 'bfill', 'ffill', or 'drop'
 
-    :param hist_kwargs: optional kwargs for np.histogram2d
+    :param hist_kwargs: optional kwargs for _np.histogram2d
 
 
-    :return:            tuple of H, x_edges, and y_edges (from np.histogram2d)
+    :return:            tuple of H, x_edges, and y_edges (from _np.histogram2d)
     """
 
     if hist_kwargs is None:
@@ -179,7 +179,7 @@ def spatial_bins(source_df: pd.DataFrame,
     y_bins = int((_y_bins + bin_size) - (_y_bins % bin_size))
 
     # Extract 2D histogram
-    H, x_edges, y_edges = np.histogram2d(source_df[x_col].values,
+    H, x_edges, y_edges = _np.histogram2d(source_df[x_col].values,
                                          source_df[y_col].values,
                                          bins=[x_bins, y_bins],
                                          **hist_kwargs)
@@ -188,7 +188,7 @@ def spatial_bins(source_df: pd.DataFrame,
     return H, x_edges, y_edges
 
 
-def windows_custom(source_df: pd.DataFrame, startpoints: list, endpoints: list) -> list:
+def windows_custom(source_df: _pd.DataFrame, startpoints: list, endpoints: list) -> list:
     """
     Grab the windows between each pair of startpoints and endpoints.
 
@@ -213,7 +213,7 @@ def windows_custom(source_df: pd.DataFrame, startpoints: list, endpoints: list) 
     return windows
 
 
-def windows_aligned(source_df:          pd.DataFrame,
+def windows_aligned(source_df:          _pd.DataFrame,
                     fps:                float,
                     alignment_points:   list,
                     pre_frames:         int = 0,
@@ -265,7 +265,7 @@ def windows_aligned(source_df:          pd.DataFrame,
         windows.append(source_df.loc[source_df.index.values[start:end:1]])
 
     if center_index:
-        centered_index = np.round(np.linspace(-(pre_frames - 1)/fps, post_frames/fps, num=len(windows[0])), 2)
+        centered_index = _np.round(_np.linspace(-(pre_frames - 1)/fps, post_frames/fps, num=len(windows[0])), 2)
 
         for window in windows:
             window.set_index([centered_index], inplace=True)
@@ -294,7 +294,7 @@ def reconstruct_time(trial_onsets: Dict[str, list],
     :param fps:             Frame rate (frames per second)
     :type fps:              float
 
-    :return:                A t x n pd.DataFrame, where t represents timestamps x fps, and n represents to the number
+    :return:                A t x n _pd.DataFrame, where t represents timestamps x fps, and n represents to the number
                             of trial types.
     """
 
@@ -303,7 +303,7 @@ def reconstruct_time(trial_onsets: Dict[str, list],
 
     num_features = len(trial_onsets.keys())
 
-    _arr = np.zeros((stage_duration * fps, num_features))
+    _arr = _np.zeros((stage_duration * fps, num_features))
 
     for i, (trial_type, onsets) in enumerate(trial_onsets.items()):
         trial_dur = trial_durations[trial_type]
@@ -311,12 +311,12 @@ def reconstruct_time(trial_onsets: Dict[str, list],
         for onset in onsets:
             _arr[onset * fps: (onset + trial_dur) * fps, i] = 1
 
-    _arr = pd.DataFrame(_arr, columns=trial_onsets.keys(), index=np.arange(0, len(_arr)))
+    _arr = _pd.DataFrame(_arr, columns=trial_onsets.keys(), index=_np.arange(0, len(_arr)))
 
     return _arr
 
 
-def get_events(source_df: pd.DataFrame,
+def get_events(source_df: _pd.DataFrame,
                cols: List[str] = None,
                get_intervals: bool = True) -> dict:
     """
@@ -326,7 +326,7 @@ def get_events(source_df: pd.DataFrame,
     identify events and from there will record the onset, end, and duration of each event within a column.
 
     :param source_df:       Original DataFrame to get events from.
-    :type source_df:        pd.DataFrame
+    :type source_df:        _pd.DataFrame
 
     :param cols:            If provided, events will be obtained only for those columns.
                             If not provided, the function will get events from all columns of source_df.
@@ -354,7 +354,7 @@ def get_events(source_df: pd.DataFrame,
                        'epoch duration': []}
 
         for i in range(1, num_events + 1):
-            events = np.argwhere(event_comps == i)
+            events = _np.argwhere(event_comps == i)
             event_onset = events[0]
             event_end = events[-1]
             event_dur = event_end - event_onset + 1
@@ -365,14 +365,14 @@ def get_events(source_df: pd.DataFrame,
             events_dict['epoch duration'].append(*event_dur)
 
         if get_intervals:
-            interval_comps, num_intervals = label(np.abs(source_df[col].values - 1))
+            interval_comps, num_intervals = label(_np.abs(source_df[col].values - 1))
             intervals_dict = {'epoch type': [],
                               'epoch onset': [],
                               'epoch end': [],
                               'epoch duration': []}
 
             for i in range(1, num_intervals + 1):
-                intervals = np.argwhere(interval_comps == i)
+                intervals = _np.argwhere(interval_comps == i)
                 interval_onset = intervals[0]
                 interval_end = intervals[-1]
                 interval_dur = interval_end - interval_onset + 1
@@ -382,20 +382,53 @@ def get_events(source_df: pd.DataFrame,
                 intervals_dict['epoch end'].append(*interval_end)
                 intervals_dict['epoch duration'].append(*interval_dur)
 
-            events_df = pd.DataFrame(events_dict)
-            intervals_df = pd.DataFrame(intervals_dict)
-            merged_df = pd.concat([events_df, intervals_df], axis=0)
+            events_df = _pd.DataFrame(events_dict)
+            intervals_df = _pd.DataFrame(intervals_dict)
+            merged_df = _pd.concat([events_df, intervals_df], axis=0)
 
             results[col] = merged_df
 
         else:
-            events_df = pd.DataFrame(events_dict)
+            events_df = _pd.DataFrame(events_dict)
             results[col] = events_df
 
     return results
 
 
+def downsample_by_time(data: _pd.DataFrame,
+                       interval: float,
+                       method: str = 'mean',
+                       round_time: int = None):
+    """
+    Downsample a dataset by a specified time interval.
+
+    :param interval:    Binning interval (in seconds).
+
+    :param method:      Aggregation method. The 'mean' method will compute the mean value for each interval.
+
+    :param inplace:     if True, updates the self.data parameter to contain only the downsampled dataset.
+    """
+
+    # Currently supported methods
+    methods = ['mean']
+
+    bins = _np.arange(data.index.values[0] - interval, data.index.values[-1] + interval, interval)
+
+    if method == 'mean':
+        binned = data.groupby(_pd.cut(data.index, bins)).mean()
+
+    else:
+        raise ValueError(f'Method {method} not recognized. Currently accepted methods are {methods}')
+    binned.index = _pd.Series(binned.index).apply(lambda x: x.left).astype(float)
+    binned.index = binned.index + interval
+
+    if round_time:
+        binned.index = _np.round(binned.index, round_time)
+
+    return binned
+
+
 if __name__ == '__main__':
-    df = pd.DataFrame(data=np.random.randint(0, 2, (100, 3)), columns=['Col1', 'Col2', 'Col3'])
+    df = _pd.DataFrame(data=_np.random.randint(0, 2, (100, 3)), columns=['Col1', 'Col2', 'Col3'])
     results = get_events(df, cols=['Col1', 'Col3'], get_intervals=True)
     print(results)

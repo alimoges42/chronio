@@ -15,7 +15,6 @@ import operator
 import numpy as _np
 import pandas as _pd
 from scipy.interpolate import interp1d as _interp1d
-from scipy.stats import sem as _sem
 
 import chronio.analyses as _analyses
 from chronio.convention import Convention as _Convention
@@ -38,7 +37,7 @@ class Metadata:
                         instantiation, this parameter can be accessed via self.system['fpath'].
     :type fpath:        str
 
-    :param stage_name:       Name of stage (if applicable). Upon instantiation, this parameter can be accessed via
+    :param stage_name:  Name of stage (if applicable). Upon instantiation, this parameter can be accessed via
                         self.session['stage'].
     :type stage_name:        str
 
@@ -201,16 +200,6 @@ class WindowPane(_Structure):
     def __repr__(self):
         return f'{self.__class__.__name__}(num_rows={self.data.shape[0]}, num_columns={self.data.shape[1]})'
 
-    def sem(self,
-            axis: int = 0):
-        """
-        :param axis:    axis along which to compute. By default this is set to 0, which will return the standard error
-                        at each timepoint across the window.
-
-        :return:        Returns the standard error of the mean along the specified axis (passed to scipy.stats.sem())
-        """
-
-        return _sem(self.data, axis=axis)
 
     def event_counts(self,
                      axis: int = 0):
@@ -328,7 +317,7 @@ class _TimeSeries(_Structure):
     def downsample_to_length(self,
                              method: str = 'nearest',
                              length: int = None,
-                             inplace=False):
+                             inplace: bool = False):
         """
         Downsample a dataset to a target length
 
@@ -373,16 +362,23 @@ class _TimeSeries(_Structure):
         :param inplace:     if True, updates the self.data parameter to contain only the downsampled dataset.
         """
 
-        # Currently supported methods
-        methods = ['mean']
-
         bins = _np.arange(self.data.index.values[0] - interval, self.data.index.values[-1] + interval, interval)
+
+        # Currently supported methods
+        methods = ['mean', 'min', 'max']
 
         if method == 'mean':
             binned = self.data.groupby(_pd.cut(self.data.index, bins)).mean()
 
+        elif method == 'min':
+            binned = self.data.groupby(_pd.cut(self.data.index, bins)).min()
+
+        elif method == 'max':
+            binned = self.data.groupby(_pd.cut(self.data.index, bins)).max()
+
         else:
             raise ValueError(f'Method {method} not recognized. Currently accepted methods are {methods}')
+
         binned.index = _pd.Series(binned.index).apply(lambda x: x.left).astype(float)
         binned.index = binned.index + interval
 
@@ -462,7 +458,6 @@ class _TimeSeries(_Structure):
             data = self.data.copy(deep=True)
             data[columns] = data[columns].where(ops[direction](self.data[columns], thr), other=0)
 
-            # Can't use self.binarize() here because we made a deep copy
             if binarize:
                 data[columns][data[columns] >= thr] = 1
 
@@ -496,7 +491,7 @@ class _TimeSeries(_Structure):
         if method == 'round':
             data.loc[:, columns] = data.loc[:, columns].fillna(method='bfill')
 
-            data.clip(0, 1, inplace=True)
+            data.loc[:, columns].clip(0, 1, inplace=True)
 
             data.loc[:, columns] = data.loc[:, columns].round(0)
             data[columns] = data.loc[:, columns].astype(_np.int16)

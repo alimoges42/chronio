@@ -1,0 +1,12 @@
+cycler
+fsspec
+ipykernel
+ipython
+jupyter
+matplotlib
+numpy
+openpyxl
+pandas
+scipy
+scikit-learn
+seaborn

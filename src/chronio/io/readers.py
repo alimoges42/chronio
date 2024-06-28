@@ -3,7 +3,8 @@ from abc import ABC as _ABC, abstractmethod as _abstractmethod
 import pandas as _pd
 
 from chronio.structs import NeuroTimeSeries as _NeuroTimeSeries, \
-    BehavioralTimeSeries as _BehavioralTimeSeries, Metadata as _Metadata
+    BehavioralTimeSeries as _BehavioralTimeSeries, Metadata as _Metadata, \
+    EventData as _EventData
 from chronio.experiment import stage_from_template
 
 
@@ -125,3 +126,38 @@ class PMAT_Reader(_Reader):
         df.columns = ['Time', 'DFF']
 
         return _NeuroTimeSeries(data=df, time_col='Time', metadata=metadata)
+
+
+class AA_Reader(_Reader):
+
+    def __init__(self,
+                 params: dict = None):
+        super().__init__(params=params)
+        self.sample_names = None
+        self.xl = None
+
+    def load(self,
+             fpath: str,
+             metadata: _Metadata = _Metadata()):
+
+        self.xl = _pd.ExcelFile(fpath)
+        sample_names = [i.split('_')[0] for i in self.xl.sheet_names if i not in ['Device Record', 'Summary']]
+        self.sample_names = list(set(sample_names))
+
+    def get_sample(self,
+                   sample_id: str,
+                   metadata: _Metadata = _Metadata()):
+        shocks = self.xl.parse(f'{sample_id}_ShockON')
+        tones = self.xl.parse(f'{sample_id}_ToneON')
+
+        tones = tones[['From Second', 'To Second', 'Length(Second)']]
+        shocks = shocks[['From Second', 'To Second', 'Length(Second)']]
+
+        tones.columns = ['epoch onset', 'epoch end', 'epoch duration']
+        shocks.columns = ['epoch onset', 'epoch end', 'epoch duration']
+
+        tones = _EventData(data=tones, metadata=metadata.set_val('session', {'sample_id': sample_id}))
+        shocks = _EventData(data=shocks, metadata=metadata.set_val('session', {'sample_id': sample_id}))
+
+        return {'tones': tones,
+                'shocks': shocks}
