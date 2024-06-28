@@ -20,6 +20,8 @@ import chronio.analyses as _analyses
 from chronio.convention import Convention as _Convention
 from chronio.io.exporters import _DataFrameExporter, _ArrayExporter
 
+from .utils import handle_inplace as _handle_inplace
+
 __all__ = ['Metadata',
            'WindowPane',
            'Window',
@@ -201,21 +203,15 @@ class WindowPane(_Structure):
         return f'{self.__class__.__name__}(num_rows={self.data.shape[0]}, num_columns={self.data.shape[1]})'
 
 
-    def event_counts(self,
-                     axis: int = 0):
+    def event_counts(self, axis: int = 0) -> _np.ndarray:
         """
-        Return counts of events for binarized data. Note that this method requires the variable of interest to
-        consist solely of 1s and 0s, where 1s represent event occurrence.
+        Return counts of events for binarized data.
 
-        :param axis:    axis along which to compute. By default this is set to 0, which will count the events in each
-                        trial across the window.
-
-        :return:        Returns the total number of events of interest along a given axis in the window
+        :param axis: axis along which to compute. By default this is set to 0, which will count the events in each
+                     trial across the window.
+        :return: Returns the total number of events of interest along a given axis in the window
         """
-
-        diff_ = _np.diff(self.data, axis=axis)
-        diff_[diff_ == -1] = 0
-        return diff_.sum(axis=axis)
+        return _analyses.count_events(self.data.values, axis=axis)
 
 
 class Window(_Structure):
@@ -314,208 +310,81 @@ class _TimeSeries(_Structure):
         self._time_col = time_col
         self.data.set_index(time_col, inplace=True)
 
-    def downsample_to_length(self,
-                             method: str = 'nearest',
-                             length: int = None,
-                             inplace: bool = False):
+    @_handle_inplace
+    def downsample_to_length(self, length: int, method: str = 'nearest'):
         """
-        Downsample a dataset to a target length
+        Downsample the dataset to a target length.
 
-        :param method:      method of downsampling. Valid methods are 'nearest', 'linear', and 'cut'.
-                            For 'nearest' and 'linear' methods, np.interp1d is used, and these methods are passed to
-                            the 'kind' parameter of np.interp1d.
-
-        :param length:      desired length of downsampled results
-
-        :param inplace:     if True, updates the self.data parameter to contain only the downsampled dataset.
+        :param length: Desired length of downsampled results
+        :param method: Method of downsampling. Valid methods are 'nearest', 'linear', and 'cubic'.
+        :return: A new _TimeSeries object with the downsampled data if inplace=False,
+                 otherwise None and the current object is modified.
         """
+        return _analyses.downsample_to_length(self.data, length, method)
 
-        x = self.data.index
-        y = self.data.values
-
-        f = _interp1d(x, y, axis=0, kind=method)
-        x_new = _np.linspace(x[0], x[-1], num=length)
-        y_new = f(x_new)
-        idx = _np.arange(0, len(y_new), 1)
-
-        df = _pd.DataFrame(index=idx, columns=self.data.columns, data=y_new)
-
-        if inplace:
-            self.data = df
-            self._update_fps()
-
-        else:
-            return self.__class__(data=df, metadata=self.metadata, time_col=self._time_col)
-
-    def downsample_by_time(self,
-                           interval: float,
-                           method: str = 'mean',
-                           round_time: int = None,
-                           inplace=False):
+    @_handle_inplace
+    def downsample_by_time(self, interval: float, method: str = 'mean', round_time: int = None):
         """
         Downsample a dataset by a specified time interval.
 
         :param interval:    Binning interval (in seconds).
-
         :param method:      Aggregation method. The 'mean' method will compute the mean value for each interval.
-
-        :param inplace:     if True, updates the self.data parameter to contain only the downsampled dataset.
+        :param round_time:  If provided, round the new timestamps to this number of decimal places
+        :return:            A new _TimeSeries object with the downsampled data if inplace=False,
+                            otherwise None and the current object is modified.
         """
+        binned = _analyses.downsample_by_time(self.data, interval, method, round_time)
 
-        bins = _np.arange(self.data.index.values[0] - interval, self.data.index.values[-1] + interval, interval)
+        # The following line is kept within the method as it's specific to the _TimeSeries class
+        self._update_fps()
 
-        # Currently supported methods
-        methods = ['mean', 'min', 'max']
+        return binned
 
-        if method == 'mean':
-            binned = self.data.groupby(_pd.cut(self.data.index, bins)).mean()
-
-        elif method == 'min':
-            binned = self.data.groupby(_pd.cut(self.data.index, bins)).min()
-
-        elif method == 'max':
-            binned = self.data.groupby(_pd.cut(self.data.index, bins)).max()
-
-        else:
-            raise ValueError(f'Method {method} not recognized. Currently accepted methods are {methods}')
-
-        binned.index = _pd.Series(binned.index).apply(lambda x: x.left).astype(float)
-        binned.index = binned.index + interval
-
-        if round_time:
-            binned.index = _np.round(binned.index, round_time)
-
-        if inplace:
-            self.data = binned
-            self._update_fps()
-            return None
-
-        else:
-            return self.__class__(data=binned, metadata=self.metadata)
-
-    def get_events(self,
-                   columns: _List[str] = None,
-                   get_intervals: bool = True) -> dict:
-
-        if columns is None:
-            columns = self.data.columns
-
-        events = _analyses.get_events(source_df=self.data, cols=columns, get_intervals=get_intervals)
-
-        events_dict = {}
-        for col, event in events.items():
-            events_dict[col] = EventData(data=event, metadata=self.metadata)
-
-        return events_dict
-
+    @_handle_inplace
     def threshold(self,
                   thr: float,
                   direction: str = '>',
                   binarize: bool = False,
-                  columns: _List[str] = None,
-                  inplace: bool = False):
+                  columns: list = None):
         """
         Set a threshold on the specified columns of the dataset and, if desired, binarize the resulting dataset.
-        Currently, the same threshold is applied to all specified columns, so if separate thresholds are needed for
-        different columns, then this method should be run repeatedly, specifying the target columns for each threshold.
 
-        :param thr:         Threshold value.
-
-        :param binarize:    If True, follow the thresholding with a binarization step that sets all nonzero values to 1.
-
-        :param columns:     List of columns to be thresholded.
-
-        :param inplace:     If True, updates the self.data parameter to contain only the thresholded (or, if applicable,
-                            the binarized) dataset.
-
-
-        :returns:           If inplace == False, returns thresholded (or, if applicable, the binarized) dataset.
-                            If inplace == True, modify inplace and return None
+        :param thr:       Threshold value
+        :param direction: Comparison operator ('>', '>=', '==', '!=', '<', '<=')
+        :param binarize:  If True, binarize the result
+        :param columns:   List of columns to be thresholded. If None, all columns are used.
+        :return:          Thresholded _TimeSeries object if inplace=False, otherwise None
         """
+        return _analyses.threshold_data(self.data, thr, direction, binarize, columns)
 
-        ops = {'>': operator.gt,
-               '>=': operator.ge,
-               '==': operator.eq,
-               '!=': operator.ne,
-               '<': operator.lt,
-               '<=': operator.le}
-
-        if direction not in ops.keys():
-            raise ValueError(f'Invalid operation {direction}. Valid operations are {ops.keys()}')
-
-        if columns is None:
-            columns = self.data.columns
-
-        if inplace:
-            self.data[columns] = self.data[columns].where(ops[direction](self.data[columns], thr), other=0)
-
-            if binarize:
-                self.binarize(columns=columns, inplace=inplace)
-
-            return None
-
-        else:
-            data = self.data.copy(deep=True)
-            data[columns] = data[columns].where(ops[direction](self.data[columns], thr), other=0)
-
-            if binarize:
-                data[columns][data[columns] >= thr] = 1
-
-            return self.__class__(data=data, metadata=self.metadata)
-
+    @_handle_inplace
     def binarize(self,
-                 columns: _List[str] = None,
-                 method: str = 'round',
-                 inplace: bool = False):
+                 columns: list = None,
+                 method: str = 'round'):
         """
-        Binarize a dataset. All nonzero entries (including negative numbers!!) will be set to 1.
+        Binarize a dataset. All nonzero entries (including negative numbers) will be set to 1.
 
-        :param method:  Binarization method. Valid methods are:
-                            - `'round'`: Default. Round values to
-                            - `'retain_ones'`:
-                            - `'retain_zeros'`:
-
-        :param columns: Columns to binarize.
-
-        :param inplace: If True, updates the self.data parameter to contain only the binarized dataset.
-
-        :returns:       If inplace == False, returns the binarized dataset.
-                        If inplace == True, modify inplace and return None
+        :param columns: Columns to binarize. If None, all columns are used.
+        :param method:  Binarization method. Valid methods are 'round', 'retain_ones', 'retain_zeros'
+        :return:        Binarized _TimeSeries object if inplace=False, otherwise None
         """
+        return _analyses.binarize_data(self.data, columns, method)
 
-        if columns is None:
-            columns = self.data.columns
+    @_handle_inplace
+    def normalize(self,
+                  baseline: list = None,
+                  columns: list = None):
+        """
+        Normalize a dataset to some window. Normalization is achieved via a z-scoring-like method,
+        wherein a window may be established as a baseline mean. If no window is specified, the entire time
+        series is used as the baseline mean.
 
-        data = self.data.copy(deep=True)
-
-        if method == 'round':
-            data.loc[:, columns] = data.loc[:, columns].fillna(method='bfill')
-
-            data.loc[:, columns].clip(0, 1, inplace=True)
-
-            data.loc[:, columns] = data.loc[:, columns].round(0)
-            data[columns] = data.loc[:, columns].astype(_np.int16)
-
-        elif method == 'retain_ones':
-            data.clip(0, 1, inplace=True)
-
-            data[columns] = data[columns].where(data == 1, 0).astype(_np.int16)
-
-        elif method == 'retain_zeros':
-            data.clip(0, 1, inplace=True)
-
-            data[columns] = data[columns].where(data == 0, 1).astype(_np.int16)
-
-        else:
-            valid_methods = ['round', 'hold_ones', 'hold_zeros']
-            raise ValueError(f'Specified method not supported. Valid methods are {valid_methods}.')
-
-        if inplace:
-            self.data = data
-            return None
-
-        else:
-            return self.__class__(data=data, metadata=self.metadata)
+        :param baseline: A list of two indices, where `baseline[0]` designates beginning of window,
+                         and `baseline[1]` designates the end of the window.
+        :param columns:  A list which, if supplied, applies normalization only to the specified columns.
+        :return:         Normalized _TimeSeries object if inplace=False, otherwise None
+        """
+        return _analyses.normalize_data(self.data, baseline, columns)
 
     def split_by_trial(self,
                        timepoints: list,
@@ -551,48 +420,20 @@ class _TimeSeries(_Structure):
 
         return trials
 
-    def normalize(self, baseline: _List[int] = None, columns: _List[str] = None, inplace=False):
-        """
-        Normalize a dataset to some window. Normalization is achieved via a z-scoring-like method,
-        wherein a window may be established as a baseline mean. If no window is specified, the entire time
-        series is used as the baseline mean.
-
-        :param baseline: A list of two indices, where `window[0]` designates beginning of window,
-                        and `window[1]` designates the end of the window.
-        :type baseline:  List[int]
-
-        :param columns: A list which, if supplied, applies normalization only to the specified columns.
-        :type columns:  List[str]
-
-        :param inplace: If True, update `self.data` with new values. If False, return a new object.
-        :type inplace:  bool
-
-        :return:        Derivative TimeSeries object.
-        """
+    def get_events(self,
+                   columns: _List[str] = None,
+                   get_intervals: bool = True) -> dict:
 
         if columns is None:
-            columns = self.data.columns.tolist()
+            columns = self.data.columns
 
-        data = self.data[columns]
+        events = _analyses.get_events(source_df=self.data, cols=columns, get_intervals=get_intervals)
 
-        if baseline:
-            mean = _np.nanmean(data.values[baseline[0]: baseline[1]], axis=0)
-            std = _np.nanstd(data.values[baseline[0]: baseline[1]], axis=0)
+        events_dict = {}
+        for col, event in events.items():
+            events_dict[col] = EventData(data=event, metadata=self.metadata)
 
-        else:
-            mean = _np.nanmean(data.values, axis=0)
-            std = _np.nanstd(data.values, axis=0)
-
-        z = (data.values - mean) / std
-        z = _pd.DataFrame(z, columns=data.columns, index=data.index)
-        z = z.reindex_like(self.data)
-
-        if inplace:
-            self.data = z
-            return None
-
-        else:
-            return self.__class__(data=z, metadata=self.metadata, time_col=self._time_col)
+        return events_dict
 
 
 class BehavioralTimeSeries(_TimeSeries):

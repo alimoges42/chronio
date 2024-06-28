@@ -8,107 +8,26 @@ as well as window alignment.
 Author: Aaron Limoges
 """
 
-from collections import defaultdict
-from itertools import groupby
 from typing import List, Dict, Any
+import operator as _operator
 
 import pandas as _pd
 import numpy as _np
-from scipy.ndimage import label
+from scipy.ndimage import label as _label
+from scipy.interpolate import interp1d as _interp1d
 
 
 __all__ = ['segment_df',
            'frames_to_times',
            'times_to_frames',
+           'count_events',
            'get_events',
            'spatial_bins',
            'windows_aligned',
            'windows_custom',
-           'reconstruct_time']
-
-
-def _binary_array(startpoints: _np.ndarray, endpoints: _np.ndarray, duration: float, width: int, frate: float = 1):
-    """
-    Create an array of 1s and 0s, where 1s correspond to events and 0s correspond to lack of events.
-
-    :param startpoints: Points at which each event starts
-    :type startpoints:  list
-
-    :param endpoints:   Points at which each event ends
-    :type endpoints:    list
-
-    :param duration:    Total duration of the desired array (in seconds)
-    :type duration:     float
-
-    :param width:       Number of columns the array should contain. Each column will contain the same values.
-    :type width:        int
-
-    :param frate:       frame rate (frames per second)
-    :type frate:        float
-
-    :return:            _np.array where number of rows is determined by frate * duration, and number of columns by width.
-    """
-
-    fps = int(1 / frate)
-    startpoints = startpoints * fps
-    endpoints = endpoints * fps
-
-    on_start = 0 if startpoints[0] != 0 else 1
-    on_end = 0 if endpoints[-1] != duration * frate else 1
-
-    events = []
-    intervals = []
-
-    if not on_start:
-        intervals.append(_np.zeros(((startpoints[0]), width), int))
-
-    for start, end in zip(startpoints, endpoints):
-        events.append(_np.ones((end - start, width), int))
-
-    for start, end in zip(startpoints[1:], endpoints[:-1]):
-        intervals.append(_np.zeros((start - end, width), int))
-
-    if not on_end:
-        intervals.append(_np.zeros((duration * fps - endpoints[-1], width), int))
-
-    result = [None] * (len(events) + len(intervals))
-
-    if on_start:
-        result[::2] = events
-        result[1::2] = intervals
-
-    else:
-        result[::2] = intervals
-        result[1::2] = events
-
-    result = _np.concatenate(result).reshape(width, duration * fps)[0]
-    return result
-
-
-def segment_df(source_df: _pd.DataFrame, startpoints: list, endpoints: list):
-    """
-    Given a list of startpoints and endpoints, segment a DataFrame into a list of DataFrames.
-
-    :param source_df:   DataFrame to segment
-    :type source_df:    _pd.DataFrame
-
-    :param startpoints: List of indices that determine onset of epochs
-    :type startpoints:  list
-
-    :param endpoints:   List of indices that determine ending of epochs
-    :type endpoints:    list
-
-    :return:            tuple of lists, with the first list corresponding to windows between start and endpoints,
-                        and the second list containing windows outside of that (i.e. the masked windows).
-    """
-    mask = _binary_array(startpoints=startpoints, endpoints=endpoints, duration=source_df.shape[0], width=1, frate=1)
-
-    source_df['Mask'] = mask
-    windows = [g[g.columns[:-1]][g.Mask != 0] for k, g in source_df.groupby((source_df.Mask == 0).cumsum()) if len(g) > 1]
-    inverted = [g[g.columns[:-1]][g.Mask != 1] for k, g in source_df.groupby((source_df.Mask == 1).cumsum()) if len(g) > 1]
-    source_df.drop(columns=['Mask'], inplace=True)
-
-    return windows, inverted
+           'reconstruct_time',
+           'downsample_to_length',
+           'downsample_by_time',]
 
 
 def frames_to_times(fps: float, frame_numbers: list) -> list:
@@ -316,6 +235,19 @@ def reconstruct_time(trial_onsets: Dict[str, list],
     return _arr
 
 
+def count_events(data: _np.ndarray, axis: int = 0) -> _np.ndarray:
+    """
+    Count the number of events in binarized data.
+
+    :param data: A numpy array of binarized data where 1s represent event occurrences.
+    :param axis: The axis along which to compute. Default is 0.
+    :return: An array containing the total number of events along the specified axis.
+    """
+    diff = _np.diff(data, axis=axis)
+    diff[diff == -1] = 0
+    return diff.sum(axis=axis)
+
+
 def get_events(source_df: _pd.DataFrame,
                cols: List[str] = None,
                get_intervals: bool = True) -> dict:
@@ -346,7 +278,7 @@ def get_events(source_df: _pd.DataFrame,
     results = {}
 
     for col in cols:
-        event_comps, num_events = label(source_df[col].values)
+        event_comps, num_events = _label(source_df[col].values)
 
         events_dict = {'epoch type': [],
                        'epoch onset': [],
@@ -365,7 +297,7 @@ def get_events(source_df: _pd.DataFrame,
             events_dict['epoch duration'].append(*event_dur)
 
         if get_intervals:
-            interval_comps, num_intervals = label(_np.abs(source_df[col].values - 1))
+            interval_comps, num_intervals = _label(_np.abs(source_df[col].values - 1))
             intervals_dict = {'epoch type': [],
                               'epoch onset': [],
                               'epoch end': [],
@@ -409,16 +341,23 @@ def downsample_by_time(data: _pd.DataFrame,
     :param inplace:     if True, updates the self.data parameter to contain only the downsampled dataset.
     """
 
-    # Currently supported methods
-    methods = ['mean']
-
     bins = _np.arange(data.index.values[0] - interval, data.index.values[-1] + interval, interval)
+
+    # Currently supported methods
+    methods = ['mean', 'min', 'max']
 
     if method == 'mean':
         binned = data.groupby(_pd.cut(data.index, bins)).mean()
 
+    elif method == 'min':
+        binned = data.groupby(_pd.cut(data.index, bins)).min()
+
+    elif method == 'max':
+        binned = data.groupby(_pd.cut(data.index, bins)).max()
+
     else:
         raise ValueError(f'Method {method} not recognized. Currently accepted methods are {methods}')
+
     binned.index = _pd.Series(binned.index).apply(lambda x: x.left).astype(float)
     binned.index = binned.index + interval
 
@@ -427,6 +366,208 @@ def downsample_by_time(data: _pd.DataFrame,
 
     return binned
 
+
+def downsample_to_length(data: _pd.DataFrame, length: int, method: str = 'nearest') -> _pd.DataFrame:
+    """
+    Downsample a dataset to a target length.
+
+    :param data: Input DataFrame with time index
+    :param length: Desired length of downsampled results
+    :param method: Method of downsampling. Valid methods are 'nearest', 'linear', and 'cubic'.
+    :return: Downsampled DataFrame
+    """
+    if method not in ['nearest', 'linear', 'cubic']:
+        raise ValueError(f"Invalid method '{method}'. Valid methods are 'nearest', 'linear', and 'cubic'.")
+
+    x = _np.arange(len(data))
+    f = _interp1d(x, data.values, axis=0, kind=method)
+    x_new = _np.linspace(0, len(data) - 1, length)
+    new_values = f(x_new)
+
+    new_index = _pd.Index(_np.linspace(data.index[0], data.index[-1], length))
+    return _pd.DataFrame(new_values, index=new_index, columns=data.columns)
+
+
+def threshold_data(data: _pd.DataFrame,
+                   thr: float,
+                   direction: str = '>',
+                   binarize: bool = False,
+                   columns: list = None) -> _pd.DataFrame:
+    """
+    Set a threshold on the specified columns of the dataset and, if desired, binarize the resulting dataset.
+
+    :param data:      DataFrame to threshold
+    :param thr:       Threshold value
+    :param direction: Comparison operator ('>', '>=', '==', '!=', '<', '<=')
+    :param binarize:  If True, binarize the result
+    :param columns:   List of columns to be thresholded. If None, all columns are used.
+    :return:          Thresholded DataFrame
+    """
+    ops = {'>': _operator.gt, '>=': _operator.ge, '==': _operator.eq,
+           '!=': _operator.ne, '<': _operator.lt, '<=': _operator.le}
+
+    if direction not in ops.keys():
+        raise ValueError(f'Invalid operation {direction}. Valid operations are {list(ops.keys())}')
+
+    if columns is None:
+        columns = data.columns
+
+    result = data.copy()
+    result[columns] = result[columns].where(ops[direction](result[columns], thr), other=0)
+
+    if binarize:
+        result[columns] = result[columns].astype(bool).astype(int)
+
+    return result
+
+
+def binarize_data(data: _pd.DataFrame,
+                  columns: list = None,
+                  method: str = 'round') -> _pd.DataFrame:
+    """
+    Binarize a dataset. All nonzero entries (including negative numbers) will be set to 1.
+
+    :param data:    DataFrame to binarize
+    :param columns: Columns to binarize. If None, all columns are used.
+    :param method:  Binarization method. Valid methods are 'round', 'retain_ones', 'retain_zeros'
+    :return:        Binarized DataFrame
+    """
+    if columns is None:
+        columns = data.columns
+
+    result = data.copy()
+
+    if method == 'round':
+        result.loc[:, columns] = result.loc[:, columns].fillna(method='bfill')
+        result.loc[:, columns] = result.loc[:, columns].clip(0, 1)
+        result.loc[:, columns] = result.loc[:, columns].round(0).astype(_np.int16)
+    elif method == 'retain_ones':
+        result.loc[:, columns] = result.loc[:, columns].clip(0, 1)
+        result.loc[:, columns] = result.loc[:, columns].where(result.loc[:, columns] == 1, 0).astype(_np.int16)
+    elif method == 'retain_zeros':
+        result.loc[:, columns] = result.loc[:, columns].clip(0, 1)
+        result.loc[:, columns] = result.loc[:, columns].where(result.loc[:, columns] == 0, 1).astype(_np.int16)
+    else:
+        valid_methods = ['round', 'retain_ones', 'retain_zeros']
+        raise ValueError(f'Specified method not supported. Valid methods are {valid_methods}.')
+
+    return result
+
+
+def normalize_data(data: _pd.DataFrame,
+                   baseline: list = None,
+                   columns: list = None) -> _pd.DataFrame:
+    """
+    Normalize a dataset to some window. Normalization is achieved via a z-scoring-like method,
+    wherein a window may be established as a baseline mean. If no window is specified, the entire time
+    series is used as the baseline mean.
+
+    :param data:     DataFrame to normalize
+    :param baseline: A list of two indices, where `baseline[0]` designates beginning of window,
+                     and `baseline[1]` designates the end of the window.
+    :param columns:  A list which, if supplied, applies normalization only to the specified columns.
+    :return:         Normalized DataFrame
+    """
+    if columns is None:
+        columns = data.columns
+
+    result = data.copy()
+    to_normalize = result[columns]
+
+    if baseline:
+        mean = _np.nanmean(to_normalize.values[baseline[0]: baseline[1]], axis=0)
+        std = _np.nanstd(to_normalize.values[baseline[0]: baseline[1]], axis=0)
+    else:
+        mean = _np.nanmean(to_normalize.values, axis=0)
+        std = _np.nanstd(to_normalize.values, axis=0)
+
+    result[columns] = (to_normalize - mean) / std
+
+    return result
+
+
+def segment_df(source_df: _pd.DataFrame, startpoints: list, endpoints: list):
+    """
+    Given a list of startpoints and endpoints, segment a DataFrame into a list of DataFrames.
+
+    :param source_df:   DataFrame to segment
+    :type source_df:    _pd.DataFrame
+
+    :param startpoints: List of indices that determine onset of epochs
+    :type startpoints:  list
+
+    :param endpoints:   List of indices that determine ending of epochs
+    :type endpoints:    list
+
+    :return:            tuple of lists, with the first list corresponding to windows between start and endpoints,
+                        and the second list containing windows outside of that (i.e. the masked windows).
+    """
+    mask = _binary_array(startpoints=startpoints, endpoints=endpoints, duration=source_df.shape[0], width=1, frate=1)
+
+    source_df['Mask'] = mask
+    windows = [g[g.columns[:-1]][g.Mask != 0] for k, g in source_df.groupby((source_df.Mask == 0).cumsum()) if len(g) > 1]
+    inverted = [g[g.columns[:-1]][g.Mask != 1] for k, g in source_df.groupby((source_df.Mask == 1).cumsum()) if len(g) > 1]
+    source_df.drop(columns=['Mask'], inplace=True)
+
+    return windows, inverted
+
+
+def _binary_array(startpoints: _np.ndarray, endpoints: _np.ndarray, duration: float, width: int, frate: float = 1):
+    """
+    Create an array of 1s and 0s, where 1s correspond to events and 0s correspond to lack of events.
+
+    :param startpoints: Points at which each event starts
+    :type startpoints:  list
+
+    :param endpoints:   Points at which each event ends
+    :type endpoints:    list
+
+    :param duration:    Total duration of the desired array (in seconds)
+    :type duration:     float
+
+    :param width:       Number of columns the array should contain. Each column will contain the same values.
+    :type width:        int
+
+    :param frate:       frame rate (frames per second)
+    :type frate:        float
+
+    :return:            _np.array where number of rows is determined by frate * duration, and number of columns by width.
+    """
+
+    fps = int(1 / frate)
+    startpoints = startpoints * fps
+    endpoints = endpoints * fps
+
+    on_start = 0 if startpoints[0] != 0 else 1
+    on_end = 0 if endpoints[-1] != duration * frate else 1
+
+    events = []
+    intervals = []
+
+    if not on_start:
+        intervals.append(_np.zeros(((startpoints[0]), width), int))
+
+    for start, end in zip(startpoints, endpoints):
+        events.append(_np.ones((end - start, width), int))
+
+    for start, end in zip(startpoints[1:], endpoints[:-1]):
+        intervals.append(_np.zeros((start - end, width), int))
+
+    if not on_end:
+        intervals.append(_np.zeros((duration * fps - endpoints[-1], width), int))
+
+    result = [None] * (len(events) + len(intervals))
+
+    if on_start:
+        result[::2] = events
+        result[1::2] = intervals
+
+    else:
+        result[::2] = intervals
+        result[1::2] = events
+
+    result = _np.concatenate(result).reshape(width, duration * fps)[0]
+    return result
 
 if __name__ == '__main__':
     df = _pd.DataFrame(data=_np.random.randint(0, 2, (100, 3)), columns=['Col1', 'Col2', 'Col3'])
