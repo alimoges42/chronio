@@ -9,6 +9,7 @@ Author: Aaron Limoges
 """
 
 from typing import List, Dict, Any
+from typing import Callable as _Callable
 import operator as _operator
 
 import pandas as _pd
@@ -330,7 +331,8 @@ def get_events(source_df: _pd.DataFrame,
 def downsample_by_time(data: _pd.DataFrame,
                        interval: float,
                        method: str = 'mean',
-                       round_time: int = None):
+                       round_time: int = None,
+                       update_fps:_Callable = None):
     """
     Downsample a dataset by a specified time interval.
 
@@ -364,10 +366,16 @@ def downsample_by_time(data: _pd.DataFrame,
     if round_time:
         binned.index = _np.round(binned.index, round_time)
 
+    if update_fps:
+        update_fps()
+
     return binned
 
 
-def downsample_to_length(data: _pd.DataFrame, length: int, method: str = 'nearest') -> _pd.DataFrame:
+def downsample_to_length(data: _pd.DataFrame,
+                         length: int,
+                         method: str = 'nearest',
+                         update_fps: _Callable = None) -> _pd.DataFrame:
     """
     Downsample a dataset to a target length.
 
@@ -385,7 +393,12 @@ def downsample_to_length(data: _pd.DataFrame, length: int, method: str = 'neares
     new_values = f(x_new)
 
     new_index = _pd.Index(_np.linspace(data.index[0], data.index[-1], length))
-    return _pd.DataFrame(new_values, index=new_index, columns=data.columns)
+
+    if update_fps:
+        update_fps()
+    ds = _pd.DataFrame(new_values, index=new_index, columns=data.columns)
+
+    return ds
 
 
 def threshold_data(data: _pd.DataFrame,

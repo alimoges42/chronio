@@ -19,8 +19,10 @@ from scipy.interpolate import interp1d as _interp1d
 import chronio.analyses as _analyses
 from chronio.convention import Convention as _Convention
 from chronio.io.exporters import _DataFrameExporter, _ArrayExporter
+from chronio.logging_config import  setup_logging as _setup_logging
+import chronio.exceptions as _exceptions
 
-from .utils import handle_inplace as _handle_inplace
+from chronio.utils import handle_inplace as _handle_inplace
 
 __all__ = ['Metadata',
            'WindowPane',
@@ -30,6 +32,7 @@ __all__ = ['Metadata',
            'NeuroTimeSeries',
            'DataCollection']
 
+logger = _setup_logging()
 
 class Metadata:
     """
@@ -286,29 +289,45 @@ class _TimeSeries(_Structure):
                  fpath: str = None,
                  time_col: str = None,
                  read_csv_kwargs: dict = None):
-        super().__init__(data=data, metadata=metadata)
 
-        if not read_csv_kwargs:
-            read_csv_kwargs = {}
+        logger.info("Initializing _TimeSeries object")
 
-        if fpath:
-            self.metadata.system['fpath'] = fpath
+        try:
+            super().__init__(data=data, metadata=metadata)
 
-            self.data = _pd.read_csv(self.metadata.system['fpath'], **read_csv_kwargs)
+            if not read_csv_kwargs:
+                read_csv_kwargs = {}
 
-        if time_col:
-            self.data.set_index(time_col, inplace=True)
+            if fpath:
+                logger.info(f"Loading data from file: {fpath}")
+                self.metadata.system['fpath'] = fpath
+                self.data = _pd.read_csv(self.metadata.system['fpath'], **read_csv_kwargs)
 
-        self._time_col = time_col
-        self._update_fps()
+            if time_col:
+                logger.info(f"Setting time column: {time_col}")
+                self.data.set_index(time_col, inplace=True)
+
+            self._time_col = time_col
+            self._update_fps()
+            logger.info("_TimeSeries object initialized successfully")
+
+        except Exception as e:
+            logger.error(f"Error initializing _TimeSeries: {str(e)}")
+            raise _exceptions.ProcessingError("Failed to initialize _TimeSeries object") from e
 
     def _update_fps(self):
-        time_range = self.data.index.values[-1] - self.data.index.values[0]
-        self.metadata.computed['fps'] = round(self.data.shape[0] / time_range, 2)
+        try:
+            time_range = self.data.index.values[-1] - self.data.index.values[0]
+            self.metadata.computed['fps'] = round(self.data.shape[0] / time_range, 2)
+            logger.debug(f"Updated fps: {self.metadata.computed['fps']}")
+        except Exception as e:
+            logger.error(f"Error updating fps: {str(e)}")
+            raise _exceptions.ProcessingError("Failed to update fps") from e
 
     def set_time_col(self, time_col):
         self._time_col = time_col
         self.data.set_index(time_col, inplace=True)
+        logger.info("Time column set to: {time_col}")
 
     @_handle_inplace
     def downsample_to_length(self, length: int, method: str = 'nearest'):
@@ -333,12 +352,25 @@ class _TimeSeries(_Structure):
         :return:            A new _TimeSeries object with the downsampled data if inplace=False,
                             otherwise None and the current object is modified.
         """
-        binned = _analyses.downsample_by_time(self.data, interval, method, round_time)
+        logger.info(f"Downsampling data by time. Interval: {interval}, Method: {method}")
+        try:
+            if not isinstance(interval, (int, float)):
+                raise _exceptions.InputError("Interval must be a number")
+            if method not in ['mean', 'min', 'max']:
+                raise _exceptions.InputError(f"Invalid method '{method}'. Valid methods are 'mean', 'min', and 'max'")
 
-        # The following line is kept within the method as it's specific to the _TimeSeries class
-        self._update_fps()
+            binned = _analyses.downsample_by_time(self.data, interval, method, round_time)
 
-        return binned
+            logger.info("Downsampling by time completed successfully")
+            return binned
+
+        except _exceptions.InputError as e:
+            logger.error(f"Input error in downsample_by_time: {str(e)}")
+            raise
+
+        except Exception as e:
+            logger.error(f"Unexpected error in downsample_by_time: {str(e)}")
+            raise _exceptions.ProcessingError("An error occurred during downsampling") from e
 
     @_handle_inplace
     def threshold(self,
